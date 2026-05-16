@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Montserrat', 'sans-serif'],
+            }
+          }
+        }
+      }
+    </script>
+
+    <style>
+      /* Mengaplikasikan font secara global untuk memastikan tidak ada yang terlewat */
+      body { 
+        font-family: 'Montserrat', sans-serif;
+        background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab); 
+        background-size: 400% 400%; 
+        animation: gradientBG 15s ease infinite; 
+        min-height: 100vh; 
+      }
+      @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+      .glass-panel { background: rgba(255, 255, 255, 0.45); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.5); box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15); }
+      .glass-input { background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(255, 255, 255, 0.8); outline: none; }
+      .animate-fade { animation: fadeIn 0.4s ease-in-out; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+      .menu-anim { animation: slideUp 0.5s cubic-bezier(0.17, 0.67, 0.83, 0.67) forwards; }
+      ::-webkit-scrollbar { width: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); border-radius: 10px; }
+      
+      /* Chart Canvas Hover Glow Effect */
+      canvas { transition: filter 0.3s ease; }
+      canvas:hover { filter: drop-shadow(0px 0px 8px rgba(255,255,255,0.4)); }
+    </style>
+  </head>
+  <body class="p-4 md:p-6 text-gray-800">
+
+    <nav id="navbar" class="hidden glass-panel p-4 rounded-2xl mb-6 flex justify-between items-center animate-fade">
+      <h1 class="text-xl font-black tracking-tight">KAFE<span class="text-pink-600">POS</span></h1>
+      <div class="flex items-center gap-4">
+        <span id="userInfo" class="font-bold text-sm bg-white/50 px-3 py-1 rounded-full"></span>
+        <button onclick="logout()" class="bg-red-500 hover:bg-red-600 transition text-white px-4 py-1 rounded-full text-sm font-bold shadow-md">Logout</button>
+      </div>
+    </nav>
+
+    <div id="viewLogin" class="max-w-md mx-auto glass-panel p-8 rounded-3xl mt-20 shadow-2xl animate-fade">
+      <h2 class="text-3xl font-black text-center mb-8 tracking-tight">System Login</h2>
+      <form onsubmit="prosesLogin(event)" class="space-y-4">
+        <input type="text" id="loginId" required placeholder="ID User" class="w-full glass-input p-4 rounded-2xl font-bold">
+        <input type="password" id="loginPass" required placeholder="Password" class="w-full glass-input p-4 rounded-2xl font-bold">
+        <button type="submit" id="btnLogin" class="w-full bg-gray-900 text-white font-black py-4 rounded-2xl shadow-lg transition transform active:scale-95 tracking-wide">MASUK</button>
+      </form>
+      <div class="mt-8 border-t border-gray-400/30 pt-6">
+        <button onclick="bukaSelfService()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl transition transform hover:scale-105 tracking-wide">📱 MENU PELANGGAN</button>
+      </div>
+    </div>
+
+    <div id="viewSelfService" class="hidden max-w-6xl mx-auto animate-fade">
+      <div class="glass-panel p-5 rounded-3xl mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="text-center md:text-left">
+          <h2 class="text-2xl font-black tracking-tight">Halo, Selamat Datang! 👋</h2>
+          <p class="text-xs font-bold text-gray-600 tracking-wider">SILAKAN PILIH MENU FAVORIT ANDA</p>
+        </div>
+        <div class="relative w-full md:w-80">
+          <input type="text" id="searchMenuPelanggan" oninput="cariMenuPelanggan(this.value)" placeholder="🔍 Cari nama menu..." class="w-full glass-input p-4 rounded-2xl font-bold border-2 border-white/50 focus:border-blue-400 transition">
+        </div>
+        <button onclick="tutupSelfService()" class="bg-red-500 hover:bg-red-600 transition text-white px-8 py-3 rounded-2xl font-black shadow-md tracking-wide">KEMBALI</button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2">
+          <div id="katalogMenuPelanggan" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+          <div id="loadMorePelangganContainer" class="text-center mt-10 hidden">
+            <button onclick="loadMorePelanggan()" class="bg-white/80 hover:bg-white text-gray-900 font-black py-4 px-12 rounded-3xl shadow-xl transition transform hover:scale-105 border-2 border-white tracking-widest text-sm">TAMPILKAN LAINNYA ✨</button>
+          </div>
+        </div>
+        
+        <div class="glass-panel p-6 rounded-3xl h-fit sticky top-6 shadow-2xl border-t-8 border-blue-500">
+          <h3 class="text-xl font-black mb-4 flex items-center gap-2">🛒 <span>Keranjang</span></h3>
+          <ul id="listKeranjangPelanggan" class="space-y-3 mb-6 max-h-[40vh] overflow-y-auto pr-2"></ul>
+          <div class="flex justify-between font-black text-2xl mb-6 pt-4 border-t border-gray-300 text-blue-700"><span>Total:</span><span id="totalKeranjangPelanggan">Rp 0</span></div>
+          <form onsubmit="checkoutPelanggan(event)">
+            <input type="text" id="namaMejaPelanggan" oninput="this.value = this.value.toUpperCase()" required placeholder="NAMA ANDA / NOMOR MEJA" class="w-full p-4 rounded-2xl mb-4 font-black text-center border-4 border-blue-100 focus:border-blue-400 outline-none">
+            <button type="submit" id="btnCheckoutPelanggan" class="w-full bg-green-500 hover:bg-green-600 text-white font-black py-5 rounded-2xl text-xl shadow-xl transition transform active:scale-95 tracking-wide">PESAN SEKARANG</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div id="viewApp" class="hidden max-w-7xl mx-auto">
+      
+      <div id="viewAdmin" class="hidden">
+        <div class="flex gap-6 mb-6 border-b-2 border-white/30 pb-2 overflow-x-auto">
+          <button onclick="switchTab('dash')" class="font-black text-sm tracking-wider uppercase">📊 Dashboard</button>
+          <button onclick="switchTab('menu')" class="font-black text-sm tracking-wider uppercase">🍔 Master Menu</button>
+          <button onclick="switchTab('user')" class="font-black text-sm tracking-wider uppercase">👥 Daftar User</button>
+        </div>
+        
+        <div id="tab-dash">
+           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+             <div class="glass-panel p-6 rounded-3xl border-l-8 border-l-blue-500 bg-gradient-to-r from-blue-50/50 to-transparent">
+               <div class="flex justify-between"><p class="text-sm font-bold tracking-wider uppercase text-blue-600">Total Pendapatan</p><span class="animate-pulse text-[10px] bg-green-200 text-green-700 px-2 py-1 rounded font-bold tracking-wider">LIVE🔴</span></div>
+               <h3 id="dTotal" class="text-4xl font-black text-gray-900 mt-1 tracking-tight">Rp 0</h3>
+             </div>
+             <div class="glass-panel p-6 rounded-3xl border-l-8 border-l-pink-500 bg-gradient-to-r from-pink-50/50 to-transparent">
+               <div class="flex justify-between"><p class="text-sm font-bold tracking-wider uppercase text-pink-600">Total Transaksi</p><span class="animate-pulse text-[10px] bg-green-200 text-green-700 px-2 py-1 rounded font-bold tracking-wider">LIVE🔴</span></div>
+               <h3 id="dTrx" class="text-4xl font-black text-gray-900 mt-1 tracking-tight">0</h3>
+             </div>
+           </div>
+           
+           <div class="glass-panel p-6 rounded-3xl mb-6 shadow-sm">
+             <h3 class="text-lg font-black mb-4 text-gray-800 border-b border-gray-300 pb-2 tracking-tight">📈 Grafik Pendapatan Harian</h3>
+             <div class="relative h-64 w-full"><canvas id="chartRevenue"></canvas></div>
+           </div>
+
+           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div class="glass-panel p-6 rounded-3xl shadow-sm">
+               <h3 class="text-lg font-black mb-4 text-gray-800 border-b border-gray-300 pb-2 tracking-tight">🍔 Top 5 Menu Terlaris</h3>
+               <div class="relative h-64 w-full"><canvas id="chartTopMenu"></canvas></div>
+             </div>
+             <div class="glass-panel p-6 rounded-3xl shadow-sm">
+               <h3 class="text-lg font-black mb-4 text-gray-800 border-b border-gray-300 pb-2 tracking-tight">💳 Metode Pembayaran</h3>
+               <div class="relative h-64 w-full p-2"><canvas id="chartPayment"></canvas></div>
+             </div>
+           </div>
+        </div>
+
+        <div id="tab-menu" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="glass-panel p-6 rounded-3xl h-fit">
+            <h3 class="font-black mb-4 border-b border-gray-300 pb-2 uppercase text-xs tracking-wider">Tambah Menu Baru</h3>
+            <input type="text" id="m_nama" oninput="this.value = this.value.toUpperCase()" placeholder="Nama Menu" class="w-full glass-input p-3 mb-2 rounded-xl font-bold">
+            <input type="text" id="m_harga" oninput="formatInputRibuan(this)" placeholder="Harga" class="w-full glass-input p-3 mb-2 rounded-xl font-bold">
+            <input type="number" id="m_pajak" placeholder="Pajak (%)" value="11" class="w-full glass-input p-3 mb-2 rounded-xl font-bold">
+            <input type="url" id="m_gambar" placeholder="Link Gambar (URL)" class="w-full glass-input p-3 mb-4 rounded-xl font-bold">
+            <button onclick="simpanMenu()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-md transition tracking-wide">SIMPAN MENU</button>
+          </div>
+          <div class="lg:col-span-2 glass-panel p-6 rounded-3xl flex flex-col">
+            <div class="flex flex-col md:flex-row justify-between mb-4 gap-2">
+              <h2 class="text-xl font-black tracking-tight">Daftar Menu Aktif</h2>
+              <div class="flex gap-2">
+                <input type="text" id="searchAdminMenuInput" oninput="searchAdminMenu(this.value)" placeholder="🔍 Cari..." class="glass-input px-4 py-2 rounded-full text-sm font-bold">
+                <select id="perPageAdminMenu" onchange="changeAdminMenuPerPage(this.value)" class="glass-input px-2 py-2 rounded-full text-sm font-bold"><option value="5">5</option><option value="10" selected>10</option><option value="50">50</option></select>
+                <button onclick="loadAdminMenu()" class="bg-white/50 px-3 py-2 rounded-full text-sm font-bold">🔄 Refresh</button>
+              </div>
+            </div>
+            <div class="bg-white/50 rounded-2xl overflow-hidden flex-grow border border-white">
+              <table class="min-w-full text-sm text-left">
+                <thead class="bg-white/60 border-b border-white"><tr><th class="px-4 py-3">Nama Menu</th><th>Harga</th><th>Pajak</th><th class="text-right px-4">Aksi</th></tr></thead>
+                <tbody id="tblMenu"></tbody>
+              </table>
+            </div>
+            <div id="paginationMenuAdmin" class="flex justify-end gap-1 mt-4"></div>
+          </div>
+        </div>
+
+        <div id="tab-user" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+           <div class="glass-panel p-6 rounded-3xl h-fit">
+             <h3 class="font-black mb-4 border-b border-gray-300 pb-2 uppercase text-xs tracking-wider">Tambah User</h3>
+             <input type="text" id="u_id" placeholder="ID User" class="w-full glass-input p-3 mb-2 rounded-xl font-bold">
+             <input type="password" id="u_pass" placeholder="Password" class="w-full glass-input p-3 mb-2 rounded-xl font-bold">
+             <select id="u_role" class="w-full glass-input p-3 mb-4 rounded-xl font-bold"><option value="1">Admin</option><option value="2" selected>Kasir</option><option value="3">Kitchen</option></select>
+             <button onclick="simpanUser()" class="w-full bg-purple-600 text-white font-bold py-3 rounded-xl shadow-md tracking-wide">SIMPAN USER</button>
+           </div>
+           <div class="lg:col-span-2 glass-panel p-6 rounded-3xl">
+             <h2 class="text-xl font-black mb-4 tracking-tight">Daftar Akun</h2>
+             <div class="bg-white/50 rounded-2xl overflow-hidden border border-white">
+               <table class="min-w-full text-sm text-left"><thead class="bg-white/60 border-b border-white"><tr><th class="px-4 py-3">ID User</th><th>Role</th><th class="text-right px-4">Aksi</th></tr></thead><tbody id="tblUser"></tbody></table>
+             </div>
+           </div>
+        </div>
+      </div>
+
+      <div id="viewKasir" class="hidden">
+        <div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-black tracking-tight">Antrean Kasir</h2><div class="flex gap-2"><button onclick="loadOrders()" class="bg-white/50 px-4 py-2 rounded-xl font-bold shadow-sm">🔄 Refresh</button><button onclick="bukaInputKasir()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold shadow-md tracking-wide">+ Pesanan Baru</button></div></div>
+        <div id="containerKasir" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5"></div>
+      </div>
+      
+      <div id="viewKitchen" class="hidden">
+        <div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-black text-white drop-shadow-md tracking-tight">Dapur (Kitchen Display)</h2><button onclick="loadOrders()" class="bg-red-500 text-white px-4 py-2 rounded-xl font-bold shadow-md tracking-wide">🔄 Refresh</button></div>
+        <div id="containerKitchen" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+      </div>
+    </div>
+
+    <div id="modalInputKasir" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-[2rem] p-6 w-full max-w-2xl shadow-2xl animate-fade">
+        <div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-black tracking-tight">Input Manual</h2><button onclick="document.getElementById('modalInputKasir').classList.add('hidden')" class="text-red-500 font-bold text-2xl">&times;</button></div>
+        <div class="flex gap-2 mb-4"><select id="pilih_menu" class="flex-grow glass-input p-3 rounded-xl font-bold"></select><input type="number" id="pilih_qty" value="1" min="1" class="w-24 glass-input p-3 rounded-xl font-bold text-center"></div>
+        <button onclick="tambahKeKeranjangKasir()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl mb-4 tracking-wide">+ Masukkan Keranjang</button>
+        <ul id="daftarKeranjangKasir" class="space-y-2 mb-4 bg-gray-50 p-4 rounded-xl max-h-40 overflow-y-auto"></ul>
+        <div class="flex justify-between font-black text-xl mb-4 border-t pt-2"><span>Total:</span><span id="totalHargaKeranjangKasir">Rp 0</span></div>
+        <input type="text" id="namaPelangganKasir" oninput="this.value = this.value.toUpperCase()" required placeholder="NAMA PELANGGAN / MEJA" class="w-full glass-input p-3 mb-4 rounded-xl font-black text-center tracking-wider">
+        <button onclick="prosesCheckoutKasir()" id="btnCheckoutKasir" class="w-full bg-gray-900 text-white font-black py-4 rounded-xl tracking-widest">KIRIM KE DAPUR</button>
+      </div>
+    </div>
+
+    <div id="modalBayar" class="hidden fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl animate-fade">
+        <div class="flex justify-between items-start mb-6"><div><h3 id="mNama" class="text-2xl font-black mb-1 tracking-tight">Nama</h3><p id="mId" class="text-[10px] font-bold text-gray-400 tracking-wider"></p></div><button onclick="document.getElementById('modalBayar').classList.add('hidden')" class="text-2xl font-black text-gray-400">&times;</button></div>
+        <ul id="mItems" class="border-y border-gray-100 py-4 my-4 space-y-2 text-xs font-bold text-gray-500 max-h-40 overflow-y-auto"></ul>
+        <div class="flex justify-between font-black text-2xl mb-6 text-blue-700 tracking-tight"><span>Total Tagihan:</span><span id="mTotal"></span></div>
+        <div class="space-y-3 mb-6">
+          <select id="mMetode" onchange="cekMetodeBayar()" class="w-full p-4 border-2 rounded-2xl font-black outline-none focus:border-blue-500 tracking-wide">
+            <option value="tunai">Tunai</option>
+          </select>
+          <input type="text" id="mUang" oninput="formatInputRibuan(this)" placeholder="UANG DITERIMA" class="w-full p-4 border-2 border-blue-500 rounded-2xl font-black text-center text-2xl text-blue-700 transition-all duration-300 tracking-widest">
+        </div>
+        <button onclick="prosesBayar()" id="btnBayarSekarang" class="w-full bg-green-500 text-white font-black py-4 rounded-2xl shadow-lg transition active:scale-95 tracking-widest">KONFIRMASI BAYAR</button>
+      </div>
+    </div>
+
+    <script>
+      // Global configuration to ensure Chart.js uses Montserrat
+      Chart.defaults.font.family = "'Montserrat', sans-serif";
+
+      // ==========================================
+      // DEKLARASI VARIABEL GLOBAL
+      // ==========================================
+      let globalRole = 0, chartRev = null, chartTop = null, chartPay = null, globalOrders = {};
+      let intervalApp = null, intervalAdminDash = null; 
+      let allMenusDb = [], allPaymentsDb = []; 
+      
+      let dataMenuPelanggan = [], menuPelangganFiltered = [], keranjangPelanggan = [], menuPelangganDitampilkan = 6, intervalSelfService = null;
+      let adminMenuSearchQuery = "", adminMenuCurrentPage = 1, adminMenuPerPage = 10;
+      let keranjangKasir = [];
+
+      const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+      function formatInputRibuan(obj) { obj.value = obj.value.replace(/[^0-9]/g, ''); if(obj.value) obj.value = parseInt(obj.value).toLocaleString('id-ID'); }
+      function delTitik(s) { return parseInt(s.replace(/\./g, '')) || 0; }
+
+      // ==========================================
+      // AUTH
+      // ==========================================
+      function prosesLogin(e) {
+        e.preventDefault();
+        const btn = document.getElementById('btnLogin'); btn.disabled = true; btn.innerText = "SINKRONISASI...";
+        google.script.run.withSuccessHandler(res => {
+          if(res.success) {
+            globalRole = res.role;
+            document.getElementById('viewLogin').classList.add('hidden');
+            document.getElementById('navbar').classList.remove('hidden');
+            document.getElementById('userInfo').innerText = res.id_user;
+            initApp();
+          } else { 
+            Swal.fire('Gagal Login', res.message, 'error'); 
+            btn.disabled = false; btn.innerText = "MASUK"; 
+          }
+        }).cekLogin(document.getElementById('loginId').value, document.getElementById('loginPass').value);
+      }
+
+      function initApp() {
+        document.getElementById('viewApp').classList.remove('hidden');
+        google.script.run.withSuccessHandler(d => { allMenusDb = d.menus; allPaymentsDb = d.payments; }).getInitData();
+        if(globalRole == 1) { document.getElementById('viewAdmin').classList.remove('hidden'); switchTab('dash'); }
+        else if(globalRole == 2) { document.getElementById('viewKasir').classList.remove('hidden'); loadOrders(); intervalApp = setInterval(loadOrders, 10000); }
+        else if(globalRole == 3) { document.getElementById('viewKitchen').classList.remove('hidden'); loadOrders(); intervalApp = setInterval(loadOrders, 10000); }
+      }
+
+      function logout() {
+        Swal.fire({ title: 'Logout?', icon: 'warning', showCancelButton: true }).then(r => { 
+          if(r.isConfirmed) {
+            if(intervalApp) clearInterval(intervalApp);
+            if(intervalSelfService) clearInterval(intervalSelfService);
+            if(intervalAdminDash) clearInterval(intervalAdminDash);
+
+            ['navbar', 'viewApp', 'viewAdmin', 'viewKasir', 'viewKitchen', 'viewSelfService'].forEach(id => document.getElementById(id).classList.add('hidden'));
+            document.getElementById('viewLogin').classList.remove('hidden');
+            document.getElementById('loginId').value = ""; document.getElementById('loginPass').value = "";
+            document.getElementById('btnLogin').disabled = false; document.getElementById('btnLogin').innerText = "MASUK";
+            globalRole = 0; keranjangPelanggan = []; keranjangKasir = [];
+          }
+        });
+      }
+
+      // ==========================================
+      // SELF-SERVICE
+      // ==========================================
+      function bukaSelfService() {
+        document.getElementById('viewLogin').classList.add('hidden');
+        document.getElementById('viewSelfService').classList.remove('hidden');
+        document.getElementById('searchMenuPelanggan').value = '';
+        menuPelangganDitampilkan = 6;
+        tarikMenuSelfService(true);
+        if(intervalSelfService) clearInterval(intervalSelfService);
+        intervalSelfService = setInterval(() => tarikMenuSelfService(false), 10000);
+      }
+
+      function tutupSelfService() {
+        if(intervalSelfService) clearInterval(intervalSelfService);
+        document.getElementById('viewSelfService').classList.add('hidden');
+        document.getElementById('viewLogin').classList.remove('hidden');
+        keranjangPelanggan = []; renderKeranjangPelanggan(); document.getElementById('namaMejaPelanggan').value = '';
+      }
+
+      function tarikMenuSelfService(isAwal) {
+        google.script.run.withSuccessHandler(d => {
+          if(JSON.stringify(dataMenuPelanggan) !== JSON.stringify(d) || isAwal) {
+            dataMenuPelanggan = d; cariMenuPelanggan(document.getElementById('searchMenuPelanggan').value);
+          }
+        }).getMenuData();
+      }
+
+      function cariMenuPelanggan(query) {
+        let q = query.toLowerCase();
+        menuPelangganFiltered = dataMenuPelanggan.filter(m => m.nama_menu.toLowerCase().includes(q));
+        menuPelangganDitampilkan = 6;
+        renderKatalogPelanggan();
+      }
+
+      function renderKatalogPelanggan() {
+        let container = document.getElementById('katalogMenuPelanggan'); container.innerHTML = '';
+        let list = menuPelangganFiltered.slice(0, menuPelangganDitampilkan);
+        if(list.length === 0) { container.innerHTML = '<div class="col-span-full text-center py-20 font-bold text-gray-500">Menu tidak ditemukan...</div>'; }
+        list.forEach((m, i) => {
+          let img = m.gambar ? m.gambar : 'https://placehold.co/400x300/e2e8f0/64748b?text=Menu';
+          container.innerHTML += `<div class="glass-panel rounded-[2rem] overflow-hidden menu-anim flex flex-col shadow-lg border border-white" style="animation-delay: ${(i % 6)*0.08}s"><div class="h-32 md:h-40 bg-cover bg-center" style="background-image:url('${img}')"></div><div class="p-5 flex-grow flex flex-col justify-between"><div><h4 class="font-black text-sm uppercase leading-tight mb-1 truncate tracking-tight">${m.nama_menu}</h4><p class="text-blue-600 font-black text-sm mb-4 tracking-wide">Rp ${parseInt(m.harga_menu).toLocaleString('id-ID')}</p></div><button onclick="tambahItemPelanggan('${m.id_menu}')" class="w-full bg-gray-900 hover:bg-black text-white text-xs font-black py-3 rounded-2xl transition active:scale-95 tracking-widest">+ TAMBAH</button></div></div>`;
+        });
+        document.getElementById('loadMorePelangganContainer').classList.toggle('hidden', menuPelangganFiltered.length <= menuPelangganDitampilkan);
+      }
+
+      function loadMorePelanggan() { menuPelangganDitampilkan += 6; renderKatalogPelanggan(); }
+
+      function tambahItemPelanggan(id) {
+        let m = dataMenuPelanggan.find(x => x.id_menu == id); if(!m) return;
+        let exist = keranjangPelanggan.find(x => x.id_menu == id);
+        if(exist) exist.qty++; else keranjangPelanggan.push({...m, qty: 1});
+        renderKeranjangPelanggan(); Toast.fire({icon: 'success', title: m.nama_menu + ' Ditambah'});
+      }
+
+      function ubahQtyPelanggan(idx, delta) { 
+        keranjangPelanggan[idx].qty += delta; 
+        if(keranjangPelanggan[idx].qty <= 0) keranjangPelanggan.splice(idx,1); 
+        renderKeranjangPelanggan(); 
+      }
+
+      function renderKeranjangPelanggan() {
+        const ul = document.getElementById('listKeranjangPelanggan'); ul.innerHTML = ''; let total = 0;
+        if(keranjangPelanggan.length === 0) ul.innerHTML = '<li class="text-center text-sm text-gray-500 font-bold italic py-4">Keranjang kosong...</li>';
+        keranjangPelanggan.forEach((item, idx) => {
+          let sub = Math.round((item.harga_menu * item.qty) + (item.harga_menu * item.qty * item.pajak_menu/100)); total += sub;
+          ul.innerHTML += `<li class="flex justify-between items-center bg-white/60 p-3 rounded-2xl text-xs font-bold shadow-sm"><span class="w-24 truncate uppercase tracking-tight">${item.nama_menu}</span><div class="flex items-center gap-2 bg-gray-100 rounded-lg p-1"><button type="button" onclick="ubahQtyPelanggan(${idx},-1)" class="bg-white w-6 h-6 rounded shadow-sm text-red-500 font-black">-</button><span class="w-4 text-center">${item.qty}</span><button type="button" onclick="ubahQtyPelanggan(${idx},1)" class="bg-white w-6 h-6 rounded shadow-sm text-green-500 font-black">+</button></div><span class="text-blue-600 tracking-wide">Rp ${sub.toLocaleString('id-ID')}</span></li>`;
+        });
+        document.getElementById('totalKeranjangPelanggan').innerText = 'Rp ' + total.toLocaleString('id-ID');
+      }
+
+      function checkoutPelanggan(e) {
+        e.preventDefault();
+        if(keranjangPelanggan.length == 0) return Swal.fire('Oops', 'Keranjang masih kosong', 'warning');
+        const btn = document.getElementById('btnCheckoutPelanggan'); btn.disabled = true; btn.innerText = "MENGIRIM...";
+        google.script.run.withSuccessHandler((res) => {
+          btn.disabled = false; btn.innerText = "PESAN SEKARANG";
+          Swal.fire({ title: 'PESANAN TERKIRIM!', text: 'Silakan menuju kasir untuk pembayaran.', icon: 'success' }).then(() => tutupSelfService());
+        }).simpanPesananBatch(document.getElementById('namaMejaPelanggan').value, keranjangPelanggan);
+      }
+
+      // ==========================================
+      // ADMIN & GRAPHICS
+      // ==========================================
+      function switchTab(t) {
+        ['dash','menu','user'].forEach(id => document.getElementById('tab-'+id).classList.add('hidden'));
+        document.getElementById('tab-'+t).classList.remove('hidden');
+        if(intervalAdminDash) clearInterval(intervalAdminDash);
+        if(t=='dash') { loadDash(); intervalAdminDash = setInterval(loadDash, 10000); } 
+        if(t=='menu') loadAdminMenu(); 
+        if(t=='user') loadAdminUser();
+      }
+      
+      function loadDash() {
+        google.script.run.withSuccessHandler(d => {
+          document.getElementById('dTotal').innerText = "Rp " + d.totalPendapatan.toLocaleString('id-ID');
+          document.getElementById('dTrx').innerText = d.jumlahTransaksi;
+          
+          if(chartRev) chartRev.destroy();
+          chartRev = new Chart(document.getElementById('chartRevenue'), { 
+            type:'line', 
+            data:{ labels:d.chartLabels, datasets:[{ label:'Pendapatan', data:d.chartValues, borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,0.1)', borderWidth:3, pointRadius:4, fill:true, tension:0.4 }] },
+            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, scales:{ x:{grid:{display:false}}, y:{beginAtZero:true, grid:{borderDash:[5,5]}} }, animation: {duration: 0} }
+          });
+
+          if(chartTop) chartTop.destroy();
+          chartTop = new Chart(document.getElementById('chartTopMenu'), { 
+            type:'bar', 
+            data:{ labels:d.topMenuLabels, datasets:[{ label:'Terjual', data:d.topMenuValues, backgroundColor:'#ec4899', borderRadius:6 }] },
+            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, scales:{ x:{grid:{display:false}}, y:{beginAtZero:true} }, animation: {duration: 0} }
+          });
+
+          // CHART DONUT MENYALA
+          if(chartPay) chartPay.destroy();
+          const ctxPay = document.getElementById('chartPayment').getContext('2d');
+          
+          // Membuat Gradient Warna
+          const gradientG = ctxPay.createLinearGradient(0, 0, 0, 400); gradientG.addColorStop(0, '#34d399'); gradientG.addColorStop(1, '#059669');
+          const gradientO = ctxPay.createLinearGradient(0, 0, 0, 400); gradientO.addColorStop(0, '#fbbf24'); gradientO.addColorStop(1, '#d97706');
+          const gradientB = ctxPay.createLinearGradient(0, 0, 0, 400); gradientB.addColorStop(0, '#60a5fa'); gradientB.addColorStop(1, '#2563eb');
+          const gradientP = ctxPay.createLinearGradient(0, 0, 0, 400); gradientP.addColorStop(0, '#a78bfa'); gradientP.addColorStop(1, '#7c3aed');
+          const gradientR = ctxPay.createLinearGradient(0, 0, 0, 400); gradientR.addColorStop(0, '#f87171'); gradientR.addColorStop(1, '#dc2626');
+
+          chartPay = new Chart(ctxPay, { 
+            type:'doughnut', 
+            data:{ 
+                labels:d.paymentLabels, 
+                datasets:[{ 
+                    data:d.paymentValues, 
+                    backgroundColor:[gradientG, gradientO, gradientB, gradientP, gradientR], 
+                    borderWidth: 0,
+                    // Efek Shadow / Glow
+                    shadowOffsetX: 0, shadowOffsetY: 0, shadowBlur: 20, shadowColor: 'rgba(255, 255, 255, 0.5)',
+                    hoverOffset: 15
+                }] 
+            },
+            options:{ 
+                responsive:true, maintainAspectRatio:false, cutout:'65%', layout: { padding: 20 },
+                plugins:{ 
+                    legend:{ position:'right', labels: { font: { weight: 'bold', size: 12 }, color: '#374151', padding: 20 } },
+                    tooltip: { backgroundColor: 'rgba(0,0,0,0.8)', titleFont: { weight: 'bold' }, padding: 12, cornerRadius: 10, displayColors: false }
+                }, 
+                // Animasi Halus Saat Reload
+                animation: { duration: 0 } // dibuat 0 agar auto-reload tiap 10 detik tidak berkedip
+            }
+          });
+        }).getDashboardData();
+      }
+
+      function loadAdminMenu() {
+        document.getElementById('tblMenu').innerHTML = '<tr><td colspan="4" class="text-center py-6">Loading...</td></tr>';
+        google.script.run.withSuccessHandler(d => { allMenusDb = d; renderTableMenuBerbasisClient(); }).getMenuData();
+      }
+      function searchAdminMenu(q) { adminMenuSearchQuery = q.toLowerCase(); adminMenuCurrentPage = 1; renderTableMenuBerbasisClient(); }
+      function changeAdminMenuPerPage(val) { adminMenuPerPage = parseInt(val); adminMenuCurrentPage = 1; renderTableMenuBerbasisClient(); }
+      function changeAdminMenuPage(page) { adminMenuCurrentPage = page; renderTableMenuBerbasisClient(); }
+
+      function renderTableMenuBerbasisClient() {
+        const tbody = document.getElementById('tblMenu'); const pagination = document.getElementById('paginationMenuAdmin');
+        tbody.innerHTML = ''; pagination.innerHTML = '';
+        let filtered = allMenusDb;
+        if(adminMenuSearchQuery !== "") filtered = allMenusDb.filter(m => m.nama_menu.toLowerCase().includes(adminMenuSearchQuery));
+        if(filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-6">Tidak ada data.</td></tr>'; return; }
+        const totalPages = Math.ceil(filtered.length / adminMenuPerPage);
+        if(adminMenuCurrentPage > totalPages) adminMenuCurrentPage = totalPages;
+        const start = (adminMenuCurrentPage - 1) * adminMenuPerPage;
+        const pageData = filtered.slice(start, start + adminMenuPerPage);
+        pageData.forEach(m => {
+          tbody.innerHTML += `<tr class="border-b border-white/50"><td class="py-3 px-4 font-bold uppercase tracking-tight">${m.nama_menu}</td><td class="tracking-wide">Rp ${parseInt(m.harga_menu).toLocaleString('id-ID')}</td><td>${m.pajak_menu}%</td><td class="text-right px-4"><button onclick="hapusMenu('${m.id_menu}')" class="text-red-500 font-bold bg-white/50 px-2 py-1 rounded transition hover:bg-red-500 hover:text-white">Hapus</button></td></tr>`;
+        });
+        if(totalPages > 1) {
+          for(let i=1; i<=totalPages; i++) {
+            let active = i === adminMenuCurrentPage ? "bg-blue-600 text-white" : "bg-white/50 text-gray-800";
+            pagination.innerHTML += `<button onclick="changeAdminMenuPage(${i})" class="px-3 py-1 mx-1 rounded font-bold transition hover:opacity-80 ${active}">${i}</button>`;
+          }
+        }
+      }
+
+      function simpanMenu() {
+        let d = { nama_menu: document.getElementById('m_nama').value.toUpperCase(), harga_menu: delTitik(document.getElementById('m_harga').value), pajak_menu: document.getElementById('m_pajak').value || 11, gambar: document.getElementById('m_gambar').value };
+        if(!d.nama_menu || !d.harga_menu) return alert("Lengkapi data!");
+        google.script.run.withSuccessHandler(() => { document.getElementById('m_nama').value=''; document.getElementById('m_harga').value=''; document.getElementById('m_gambar').value=''; loadAdminMenu(); Toast.fire({icon:'success', title:'Disimpan'}); }).tambahMenuBaru(d);
+      }
+      function hapusMenu(id) { Swal.fire({title:'Hapus?', icon:'warning', showCancelButton:true}).then(r => { if(r.isConfirmed) google.script.run.withSuccessHandler(()=>loadAdminTableMenu()).hapusMenu(id); }); }
+      
+      function loadAdminUser() {
+        google.script.run.withSuccessHandler(d => {
+          let html = ''; d.forEach(u => { html += `<tr class="border-b border-gray-50"><td class="py-4 px-4 font-bold tracking-tight">${u.id_user}</td><td><span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-bold uppercase tracking-wider">${u.role==1?'Admin':u.role==2?'Kasir':'Kitchen'}</span></td></tr>`; });
+          document.getElementById('tblUser').innerHTML = html;
+        }).getUserData();
+      }
+
+      // ==========================================
+      // KASIR & KITCHEN DISPLAY
+      // ==========================================
+      function bukaInputKasir() {
+        document.getElementById('modalInputKasir').classList.remove('hidden');
+        let sel = document.getElementById('pilih_menu'); sel.innerHTML = '';
+        allMenusDb.forEach(m => { sel.innerHTML += `<option value="${m.id_menu}" data-nama="${m.nama_menu}" data-harga="${m.harga_menu}" data-pajak="${m.pajak_menu}">${m.nama_menu} - Rp ${parseInt(m.harga_menu).toLocaleString('id-ID')}</option>`; });
+      }
+      function tambahKeKeranjangKasir() {
+        let sel = document.getElementById('pilih_menu'); let opt = sel.options[sel.selectedIndex]; let qty = parseInt(document.getElementById('pilih_qty').value);
+        if(!opt) return;
+        let exist = keranjangKasir.find(x => x.id_menu === sel.value);
+        if(exist) exist.qty += qty; else keranjangKasir.push({ id_menu: sel.value, nama_menu: opt.dataset.nama, harga_menu: parseInt(opt.dataset.harga), pajak_menu: parseFloat(opt.dataset.pajak), qty: qty });
+        renderKeranjangKasir();
+      }
+      function renderKeranjangKasir() {
+        let ul = document.getElementById('daftarKeranjangKasir'); ul.innerHTML = ''; let t = 0;
+        keranjangKasir.forEach((i, idx) => {
+          let sub = Math.round((i.harga_menu * i.qty) + (i.harga_menu * i.qty * i.pajak_menu/100)); t += sub;
+          ul.innerHTML += `<li class="flex justify-between border-b pb-1 text-sm font-bold"><span class="tracking-tight uppercase">${i.nama_menu} x${i.qty}</span><span class="tracking-wide text-blue-600">Rp ${sub.toLocaleString('id-ID')} <button onclick="keranjangKasir.splice(${idx},1); renderKeranjangKasir()" class="text-red-500 ml-2">×</button></span></li>`;
+        });
+        document.getElementById('totalHargaKeranjangKasir').innerText = 'Rp ' + t.toLocaleString('id-ID');
+      }
+      function prosesCheckoutKasir() {
+        if(!keranjangKasir.length) return;
+        let nm = document.getElementById('namaPelangganKasir').value; let btn = document.getElementById('btnCheckoutKasir'); btn.disabled = true; btn.innerText = "MENGIRIM...";
+        google.script.run.withSuccessHandler(() => {
+          document.getElementById('modalInputKasir').classList.add('hidden');
+          keranjangKasir = []; renderKeranjangKasir(); document.getElementById('namaPelangganKasir').value = '';
+          btn.disabled = false; btn.innerText = "KIRIM KE DAPUR"; loadOrders(); Toast.fire({icon:'success', title:'Terkirim'});
+        }).simpanPesananBatch(nm, keranjangKasir);
+      }
+
+      function loadOrders() {
+        google.script.run.withSuccessHandler(data => {
+          const group = {};
+          data.forEach(item => {
+            if(!group[item.id_order]) group[item.id_order] = { nama: item.nama_pengorder, status: item.status_order, items: [], total: 0 };
+            let sub = Math.round((item.harga_menu * item.qty) + (item.harga_menu * item.qty * item.pajak_menu/100));
+            group[item.id_order].items.push({...item, subtotal: sub}); group[item.id_order].total += sub;
+          });
+          
+          const cK = document.getElementById('containerKasir'), cT = document.getElementById('containerKitchen');
+          if(cK) cK.innerHTML = ''; if(cT) cT.innerHTML = '';
+
+          Object.keys(group).forEach(id => {
+             let d = group[id];
+             if(globalRole == 2 && d.status !== "Selesai") {
+               let btn = d.status == "Lunas" ? '<button disabled class="w-full bg-green-100 text-green-700 py-3 rounded-xl font-black mt-3 tracking-widest">LUNAS</button>' : `<button onclick="bukaBayar('${id}')" class="w-full bg-blue-600 text-white py-3 rounded-xl font-black mt-3 shadow-lg hover:bg-blue-700 tracking-widest transition active:scale-95">PROSES BAYAR</button>`;
+               cK.innerHTML += `<div class="glass-panel p-5 flex flex-col justify-between animate-fade rounded-3xl"><div><div class="flex justify-between items-start mb-3"><h4 class="font-black truncate w-2/3 text-sm uppercase tracking-tight">${d.nama}</h4><span class="text-[9px] font-black px-2 py-1 rounded-full tracking-wider ${d.status=='Lunas'?'bg-green-400 text-white':'bg-yellow-400 text-yellow-900'}">${d.status}</span></div><p class="text-xl font-black text-blue-700 tracking-wide">Rp ${d.total.toLocaleString('id-ID')}</p></div>${btn}</div>`;
+             }
+             if(globalRole == 3 && (d.status == "Pending" || d.status == "Lunas")) {
+               cT.innerHTML += `<div class="bg-white p-6 rounded-3xl shadow-xl border-4 ${d.status=='Lunas'?'border-green-400 animate-pulse':'border-transparent'}">
+                 <div class="flex justify-between mb-4 border-b pb-2"><b class="uppercase font-black tracking-tight">${d.nama}</b> ${d.status=='Lunas'?'<span class="bg-green-500 text-white px-2 py-1 rounded-full text-[9px] font-black tracking-wider">LUNAS</span>':''}</div>
+                 <ul class="text-sm font-bold space-y-2 mb-6 text-gray-700">${d.items.map(i => `<li class="border-b border-gray-50 pb-1 tracking-tight">${i.nama_menu} <span class="text-blue-500">x${i.qty}</span></li>`).join('')}</ul>
+                 <button onclick="kitchenSelesai('${id}')" class="w-full bg-gray-900 hover:bg-black text-white py-3 rounded-2xl font-black transition active:scale-95 tracking-widest">SELESAI MASAK ✅</button>
+               </div>`;
+             }
+          });
+          globalOrders = group;
+        }).getPesananAktif();
+      }
+
+      function cekMetodeBayar() {
+        let val = document.getElementById('mMetode').value.toLowerCase();
+        let inputUang = document.getElementById('mUang');
+        
+        // Pengecekan cerdas: hanya untuk "tunai" atau "cash" inputan bisa diubah
+        if (val !== 'tunai' && val !== 'cash') {
+          inputUang.value = currentTrx.total.toLocaleString('id-ID');
+          inputUang.readOnly = true;
+          inputUang.classList.remove('border-blue-500', 'text-blue-700');
+          inputUang.classList.add('border-gray-200', 'text-gray-500', 'bg-gray-100');
+        } else {
+          inputUang.readOnly = false;
+          inputUang.classList.add('border-blue-500', 'text-blue-700');
+          inputUang.classList.remove('border-gray-200', 'text-gray-500', 'bg-gray-100');
+        }
+      }
+
+      function bukaBayar(id) {
+        currentTrx = globalOrders[id]; currentTrx.id = id;
+        document.getElementById('mNama').innerText = currentTrx.nama;
+        document.getElementById('mId').innerText = id;
+        document.getElementById('mTotal').innerText = 'Rp ' + currentTrx.total.toLocaleString('id-ID');
+        document.getElementById('mItems').innerHTML = currentTrx.items.map(i => `<li class="flex justify-between tracking-tight"><span>${i.nama_menu} x${i.qty}</span><span>Rp ${i.subtotal.toLocaleString('id-ID')}</span></li>`).join('');
+        document.getElementById('mUang').value = currentTrx.total.toLocaleString('id-ID');
+        
+        let selPay = document.getElementById('mMetode'); selPay.innerHTML = '';
+        allPaymentsDb.forEach(p => selPay.innerHTML += `<option value="${p}">${p}</option>`);
+        
+        cekMetodeBayar(); // Panggil fungsi saat modal baru terbuka
+        document.getElementById('modalBayar').classList.remove('hidden');
+      }
+
+      function prosesBayar() {
+        let b = delTitik(document.getElementById('mUang').value);
+        if(b < currentTrx.total) return Swal.fire('Oops', 'Uang kurang!', 'error');
+        const btn = document.getElementById('btnBayarSekarang'); btn.disabled = true; btn.innerText = "PROCESSING...";
+        google.script.run.withSuccessHandler(() => { 
+          Swal.fire('SUKSES', `Kembalian: Rp ${(b-currentTrx.total).toLocaleString('id-ID')}`, 'success');
+          document.getElementById('modalBayar').classList.add('hidden'); btn.disabled = false; btn.innerText = "KONFIRMASI BAYAR"; loadOrders();
+        }).prosesPembayaran(currentTrx.id, document.getElementById('mMetode').value, currentTrx.items.reduce((a,b)=>a+b.qty,0), currentTrx.total, b, b-currentTrx.total);
+      }
+
+      function kitchenSelesai(id) {
+        google.script.run.withSuccessHandler(() => { Toast.fire({icon:'success', title:'Pesanan Selesai'}); loadOrders(); }).updateStatusOrder(id, "Siap Disajikan");
+      }
+    </script>
+  </body>
+</html>
