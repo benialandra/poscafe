@@ -1,8 +1,5 @@
 # ☕ KafePOS - Sistem Point-of-Sale Modern Berbasis Web
 
- 
-*(Saran: Ganti URL di atas dengan screenshot aplikasi Anda)*
-
 **KafePOS** adalah aplikasi *Point-of-Sale* (POS) berbasis web yang modern, responsif, dan *open-source*. Dibangun dengan teknologi web standar dan didukung oleh **Google Apps Script**, aplikasi ini menawarkan solusi POS yang efisien dan tanpa biaya server untuk usaha kafe atau restoran skala kecil hingga menengah.
 
 ## ✨ Fitur Utama
