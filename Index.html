@@ -9,6 +9,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script type="text/javascript" src="https://app.sandbox.midtrans.com/snap/snap.js"></script>
     
     <script>
       tailwind.config = {
@@ -312,6 +313,11 @@
              <div class="relative h-64 w-full"><canvas id="chartRevenue"></canvas></div>
            </div>
 
+           <div class="premium-panel p-6 rounded-3xl mb-6">
+             <h3 class="text-xs font-bold mb-4 text-ochre-300 border-b border-white/5 pb-2 tracking-wider uppercase">📊 Analisis Efisiensi Staf (Jumlah Transaksi vs Karyawan Aktif)</h3>
+             <div class="relative h-64 w-full"><canvas id="chartStaffEfficiency"></canvas></div>
+           </div>
+
            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
              <div class="premium-panel p-6 rounded-3xl">
                <h3 class="text-xs font-bold mb-4 text-ochre-300 border-b border-white/5 pb-2 tracking-wider uppercase">☕ Top 5 Menu Terlaris</h3>
@@ -463,7 +469,7 @@
       // ==========================================
       // GLOBAL VARIABLES
       // ==========================================
-      let globalRole = 0, chartRev = null, chartTop = null, chartPay = null, globalOrders = {};
+      let globalRole = 0, chartRev = null, chartTop = null, chartPay = null, chartStaff = null, globalOrders = {};
       let intervalApp = null, intervalAdminDash = null; 
       let allMenusDb = [], allPaymentsDb = []; 
       let currentTrx = null; // FIXED: declared globally
@@ -701,568 +707,157 @@
           icon: 'warning'
         });
         const btn = document.getElementById('btnCheckoutPelanggan'); btn.disabled = true; btn.innerText = "MENGIRIM PESANAN...";
+        
+        // Simpan keranjang sebelum dikosongkan
+        const detailItems = [...keranjangPelanggan];
+        const totalBayar = keranjangPelanggan.reduce((acc, item) => {
+          let sub = Math.round((item.harga_menu * item.qty) + (item.harga_menu * item.qty * item.pajak_menu/100));
+          return acc + sub;
+        }, 0);
+        const totalQty = keranjangPelanggan.reduce((acc, item) => acc + item.qty, 0);
+        const namaMeja = document.getElementById('namaMejaPelanggan').value.toUpperCase();
+
         google.script.run.withSuccessHandler((res) => {
           btn.disabled = false; btn.innerText = "KIRIM PESANAN KE DAPUR";
-          Swal.fire({ 
-            title: 'Selesai!', 
-            text: 'Pesanan telah terkirim. Silakan lakukan pembayaran di kasir.', 
-            icon: 'success'
-          }).then(() => {
-            keranjangPelanggan = [];
-            renderKeranjangPelanggan();
-            document.getElementById('namaMejaPelanggan').value = '';
-          });
-        }).simpanPesananBatch(document.getElementById('namaMejaPelanggan').value, keranjangPelanggan);
-      }
-
-      // ==========================================
-      // ADMIN & ANALYTICS
-      // ==========================================
-      function switchTab(t) {
-        ['dash','menu','user'].forEach(id => document.getElementById('tab-'+id).classList.add('hidden'));
-        document.getElementById('tab-'+t).classList.remove('hidden');
-        
-        const buttons = document.querySelectorAll('.admin-tab-btn');
-        buttons.forEach(btn => {
-          if (btn.innerText.toLowerCase().includes(t)) {
-            btn.classList.remove('text-gray-400', 'border-transparent');
-            btn.classList.add('text-ochre-300', 'border-ochre-300');
-          } else {
-            btn.classList.remove('text-ochre-300', 'border-ochre-300');
-            btn.classList.add('text-gray-400', 'border-transparent');
-          }
-        });
-
-        if(intervalAdminDash) clearInterval(intervalAdminDash);
-        if(t=='dash') { loadDash(); intervalAdminDash = setInterval(loadDash, 15000); } 
-        if(t=='menu') loadAdminMenu(); 
-        if(t=='user') loadAdminUser();
-      }
-      
-      function loadDash() {
-        google.script.run.withSuccessHandler(d => {
-          animateNumber('dTotal', d.totalPendapatan, true);
-          animateNumber('dTrx', d.jumlahTransaksi, false);
-          
-          const isLight = document.body.classList.contains('theme-light');
-          const primaryText = isLight ? '#2d2621' : '#eae5dc';
-          const secondaryText = isLight ? '#70635c' : '#8f8983';
-          const gridColor = isLight ? 'rgba(143, 89, 43, 0.05)' : 'rgba(255,255,255,0.03)';
-          const accentColor = isLight ? '#a06a42' : '#d4a373';
-          const accentHover = isLight ? '#82502c' : '#c58e59';
-          const panelBg = isLight ? '#fcfbf9' : '#151210';
-          
-          const textSettings = { color: secondaryText, font: { family: '"Plus Jakarta Sans", sans-serif', size: 10 } };
-
-          if(chartRev) chartRev.destroy();
-          const ctxRev = document.getElementById('chartRevenue').getContext('2d');
-          const gradientRev = ctxRev.createLinearGradient(0, 0, 0, 300);
-          gradientRev.addColorStop(0, isLight ? 'rgba(160,106,66,0.3)' : 'rgba(212,163,115,0.2)');
-          gradientRev.addColorStop(1, 'rgba(0,0,0,0)');
-
-          chartRev = new Chart(ctxRev, { 
-            type:'line', 
-            data:{ 
-              labels:d.chartLabels, 
-              datasets:[{ 
-                label:'Pendapatan', 
-                data:d.chartValues, 
-                borderColor:accentColor, 
-                backgroundColor:gradientRev, 
-                borderWidth:2.5, 
-                pointRadius:4, 
-                pointHoverRadius:6,
-                fill:true, 
-                tension:0.35 
-              }] 
-            },
-            options:{ 
-              responsive:true, 
-              maintainAspectRatio:false, 
-              plugins:{ 
-                legend:{display:false},
-                tooltip:{
-                  backgroundColor: panelBg,
-                  titleColor: primaryText,
-                  bodyColor: secondaryText,
-                  borderColor: accentColor,
-                  borderWidth: 1,
-                  padding: 10,
-                  cornerRadius: 12
-                }
-              }, 
-              scales:{ 
-                x:{ grid:{display:false}, ticks: textSettings }, 
-                y:{ beginAtZero:true, grid:{color: gridColor, borderDash:[4,4]}, ticks: textSettings } 
-              }, 
-              animation: {
-                duration: 1000,
-                easing: 'easeOutQuart'
-              } 
-            }
-          });
-
-          if(chartTop) chartTop.destroy();
-          chartTop = new Chart(document.getElementById('chartTopMenu'), { 
-            type:'bar', 
-            data:{ 
-              labels:d.topMenuLabels, 
-              datasets:[{ 
-                label:'Terjual', 
-                data:d.topMenuValues, 
-                backgroundColor:accentColor, 
-                hoverBackgroundColor:accentHover,
-                borderRadius:6 
-              }] 
-            },
-            options:{ 
-              responsive:true, 
-              maintainAspectRatio:false, 
-              plugins:{ 
-                legend:{display:false},
-                tooltip:{
-                  backgroundColor: panelBg,
-                  titleColor: primaryText,
-                  bodyColor: secondaryText,
-                  borderColor: accentColor,
-                  borderWidth: 1,
-                  padding: 10,
-                  cornerRadius: 12
-                }
-              }, 
-              scales:{ 
-                x:{ grid:{display:false}, ticks: textSettings }, 
-                y:{ beginAtZero:true, grid:{color: gridColor}, ticks: textSettings } 
-              }, 
-              animation: {
-                duration: 1200,
-                easing: 'easeOutQuart'
-              } 
-            }
-          });
-
-          if(chartPay) chartPay.destroy();
-          const ctxPay = document.getElementById('chartPayment').getContext('2d');
-          
-          const gradientG = ctxPay.createLinearGradient(0, 0, 0, 300); 
-          gradientG.addColorStop(0, accentColor); 
-          gradientG.addColorStop(1, isLight ? '#82502c' : '#9b5f33');
-
-          const gradientB = ctxPay.createLinearGradient(0, 0, 0, 300); 
-          gradientB.addColorStop(0, isLight ? '#70635c' : '#eae5dc'); 
-          gradientB.addColorStop(1, isLight ? '#2d2621' : '#a28266');
-
-          const gradientP = ctxPay.createLinearGradient(0, 0, 0, 300); 
-          gradientP.addColorStop(0, isLight ? '#e5cfb1' : '#5c402e'); 
-          gradientP.addColorStop(1, isLight ? '#a06a42' : '#231812');
-
-          chartPay = new Chart(ctxPay, { 
-            type:'doughnut', 
-            data:{ 
-              labels:d.paymentLabels, 
-              datasets:[{ 
-                data:d.paymentValues, 
-                backgroundColor:[gradientG, gradientB, gradientP], 
-                borderWidth: 0,
-                hoverOffset: 10
-              }] 
-            },
-            options:{ 
-              responsive:true, 
-              maintainAspectRatio:false, 
-              cutout:'75%', 
-              layout: { padding: 8 },
-              plugins:{ 
-                legend:{ 
-                  position:'right', 
-                  labels: { font: { family: '"Plus Jakarta Sans", sans-serif', size: 10 }, color: primaryText, padding: 10 } 
-                },
-                tooltip: { 
-                  backgroundColor: panelBg, 
-                  titleColor: primaryText,
-                  bodyColor: secondaryText,
-                  borderColor: accentColor,
-                  borderWidth: 1,
-                  padding: 10, 
-                  cornerRadius: 12, 
-                  displayColors: false 
-                }
-              }, 
-              animation: { 
-                duration: 1400,
-                easing: 'easeOutQuart'
-              }
-            }
-          });
-        }).getDashboardData();
-      }
-
-      function loadAdminMenu() {
-        document.getElementById('tblMenu').innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500 font-bold">Loading...</td></tr>';
-        google.script.run.withSuccessHandler(d => { allMenusDb = d; renderTableMenuBerbasisClient(); }).getMenuData();
-      }
-      function searchAdminMenu(q) { adminMenuSearchQuery = q.toLowerCase(); adminMenuCurrentPage = 1; renderTableMenuBerbasisClient(); }
-      function changeAdminMenuPerPage(val) { adminMenuPerPage = parseInt(val); adminMenuCurrentPage = 1; renderTableMenuBerbasisClient(); }
-      function changeAdminMenuPage(page) { adminMenuCurrentPage = page; renderTableMenuBerbasisClient(); }
-
-      function renderTableMenuBerbasisClient() {
-        const tbody = document.getElementById('tblMenu'); const pagination = document.getElementById('paginationMenuAdmin');
-        tbody.innerHTML = ''; pagination.innerHTML = '';
-        let filtered = allMenusDb;
-        if(adminMenuSearchQuery !== "") filtered = allMenusDb.filter(m => m.nama_menu.toLowerCase().includes(adminMenuSearchQuery));
-        if(filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500">Tidak ada menu aktif.</td></tr>'; return; }
-        const totalPages = Math.ceil(filtered.length / adminMenuPerPage);
-        if(adminMenuCurrentPage > totalPages) adminMenuCurrentPage = totalPages;
-        const start = (adminMenuCurrentPage - 1) * adminMenuPerPage;
-        const pageData = filtered.slice(start, start + adminMenuPerPage);
-        pageData.forEach(m => {
-          tbody.innerHTML += `
-            <tr class="border-b border-white/5 hover:bg-white/5 transition">
-              <td class="py-3 px-4 font-bold uppercase tracking-wide text-[var(--text-primary)]">${m.nama_menu}</td>
-              <td class="px-4 font-bold text-ochre-300">Rp ${parseInt(m.harga_menu).toLocaleString('id-ID')}</td>
-              <td class="px-4 text-[var(--text-secondary)]">${m.pajak_menu}%</td>
-              <td class="text-right px-4">
-                <button onclick="mulaiEditMenu('${m.id_menu}')" class="text-ochre-300 hover:text-ochre-400 bg-ochre-300/10 px-3 py-1.5 rounded-lg border border-ochre-300/20 transition text-[9px] uppercase tracking-wider mr-1.5">Edit</button>
-                <button onclick="hapusMenu('${m.id_menu}')" class="text-red-400 hover:text-red-500 bg-red-950/20 px-3 py-1.5 rounded-lg border border-red-900/30 transition text-[9px] uppercase tracking-wider">Hapus</button>
-              </td>
-            </tr>`;
-        });
-        if(totalPages > 1) {
-          for(let i=1; i<=totalPages; i++) {
-            let active = i === adminMenuCurrentPage ? "bg-ochre-300 text-espresso-950 border-ochre-300" : "bg-white/5 text-gray-400 border-white/10 hover:border-ochre-300/30 hover:text-ochre-300";
-            pagination.innerHTML += `<button onclick="changeAdminMenuPage(${i})" class="px-2.5 py-1 mx-0.5 rounded font-bold transition border text-[10px] ${active}">${i}</button>`;
-          }
-        }
-      }
-
-      function simpanMenu() {
-        let d = { 
-          nama_menu: document.getElementById('m_nama').value.toUpperCase(), 
-          harga_menu: delTitik(document.getElementById('m_harga').value), 
-          pajak_menu: document.getElementById('m_pajak').value || 11, 
-          gambar: document.getElementById('m_gambar').value || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500&q=80'
-        };
-        if(!d.nama_menu || !d.harga_menu) return Swal.fire({
-          title: 'Lengkapi Data',
-          text: 'Harap isi nama sajian dan harganya.',
-          icon: 'warning'
-        });
-
-        if (editingMenuId) {
-          // Edit Mode
-          google.script.run.withSuccessHandler(() => { 
-            batalEditMenu();
-            loadAdminMenu(); 
-            Toast.fire({icon:'success', title:'Menu diperbarui'}); 
-          }).updateMenu(editingMenuId, d);
-        } else {
-          // Create Mode
-          google.script.run.withSuccessHandler(() => { 
-            document.getElementById('m_nama').value=''; 
-            document.getElementById('m_harga').value=''; 
-            document.getElementById('m_gambar').value=''; 
-            loadAdminMenu(); 
-            Toast.fire({icon:'success', title:'Menu disimpan'}); 
-          }).tambahMenuBaru(d);
-        }
-      }
-
-      function mulaiEditMenu(id) {
-        let m = allMenusDb.find(x => x.id_menu == id);
-        if(!m) return;
-        editingMenuId = id;
-        document.getElementById('m_nama').value = m.nama_menu;
-        document.getElementById('m_harga').value = parseInt(m.harga_menu).toLocaleString('id-ID');
-        document.getElementById('m_pajak').value = m.pajak_menu;
-        document.getElementById('m_gambar').value = m.gambar;
-        
-        document.getElementById('menuFormHeader').innerText = "Edit Menu Sajian";
-        document.getElementById('btnSimpanMenu').innerText = "PERBARUI MENU";
-        
-        if(!document.getElementById('btnBatalEditMenu')) {
-          const btnBatal = document.createElement('button');
-          btnBatal.id = 'btnBatalEditMenu';
-          btnBatal.className = 'w-full bg-white/5 hover:bg-white/10 text-[var(--text-primary)] font-bold py-2.5 rounded-xl border border-white/10 transition text-xs tracking-widest uppercase mt-2';
-          btnBatal.innerText = 'BATAL EDIT';
-          btnBatal.onclick = batalEditMenu;
-          document.getElementById('menuFormContainer').appendChild(btnBatal);
-        }
-      }
-
-      function batalEditMenu() {
-        editingMenuId = null;
-        document.getElementById('m_nama').value = '';
-        document.getElementById('m_harga').value = '';
-        document.getElementById('m_pajak').value = 11;
-        document.getElementById('m_gambar').value = '';
-        
-        document.getElementById('menuFormHeader').innerText = "Tambah Menu Baru";
-        document.getElementById('btnSimpanMenu').innerText = "SIMPAN MENU";
-        
-        const btnBatal = document.getElementById('btnBatalEditMenu');
-        if(btnBatal) btnBatal.remove();
-      }
-
-      function showImageOptions() {
-        Swal.fire({
-          title: 'Sumber Gambar Sajian',
-          text: 'Pilih metode untuk menambahkan gambar menu:',
-          icon: 'question',
-          showCancelButton: true,
-          confirmButtonText: '📁 Upload File',
-          cancelButtonText: '🔗 Masukkan URL',
-          customClass: {
-            confirmButton: 'swal2-confirm',
-            cancelButton: 'swal2-cancel'
-          }
-        }).then((result) => {
-          if (result.isConfirmed) {
-            document.getElementById('m_file_input').click();
-          } else if (result.dismiss === Swal.DismissReason.cancel) {
-            Swal.fire({
-              title: 'Masukkan URL Gambar',
-              input: 'url',
-              inputPlaceholder: 'https://example.com/image.jpg',
+          if (res.status === 'success') {
+            Swal.fire({ 
+              title: 'Pesanan Terkirim!', 
+              html: `Pesanan meja/nama <b>${namaMeja}</b> telah masuk sistem dapur.<br><br>Pilih metode pembayaran:`, 
+              icon: 'success',
               showCancelButton: true,
-              confirmButtonText: 'Simpan',
+              confirmButtonText: '💳 Bayar Langsung (Online)',
+              cancelButtonText: '🏪 Bayar di Kasir',
               customClass: {
                 confirmButton: 'swal2-confirm',
                 cancelButton: 'swal2-cancel'
               }
-            }).then((urlResult) => {
-              if (urlResult.value) {
-                document.getElementById('m_gambar').value = urlResult.value;
+            }).then((choice) => {
+              if (choice.isConfirmed) {
+                prosesPembayaranOnline(res.idOrder, totalBayar, totalQty, namaMeja);
+              } else {
+                tampilkanListPesananKasir(res.idOrder, detailItems, totalBayar, namaMeja);
+              }
+              // Reset keranjang
+              keranjangPelanggan = [];
+              renderKeranjangPelanggan();
+              document.getElementById('namaMejaPelanggan').value = '';
+            });
+          } else {
+            Swal.fire('Error', res.message || 'Gagal mengirim pesanan', 'error');
+          }
+        }).simpanPesananBatch(namaMeja, keranjangPelanggan);
+      }
+
+      function prosesPembayaranOnline(idOrder, total, qty, customerName) {
+        Swal.fire({
+          title: 'Memproses Pembayaran...',
+          html: 'Sedang menghubungkan, harap tunggu.',
+          allowOutsideClick: false,
+          didOpen: () => { Swal.showLoading(); }
+        });
+
+        google.script.run.withSuccessHandler((snapRes) => {
+          Swal.close();
+          if (snapRes.status === 'simulated') {
+            // Simulasi pembayaran jika server key belum di-set
+            Swal.fire({
+              title: 'Simulasi Midtrans',
+              html: `
+                <div class="text-left space-y-2 p-2">
+                  <p class="font-bold text-ochre-300">ID Order: ${idOrder}</p>
+                  <p>Total Tagihan: <b>Rp ${total.toLocaleString('id-ID')}</b></p>
+                  <p class="text-[11px] text-gray-400">Gunakan simulasi ini untuk mencoba pembayaran online.</p>
+                </div>
+              `,
+              icon: 'info',
+              showCancelButton: true,
+              confirmButtonText: 'Bayar Sukses (Simulasi)',
+              cancelButtonText: 'Batal Pembayaran',
+              customClass: {
+                confirmButton: 'swal2-confirm',
+                cancelButton: 'swal2-cancel'
+              }
+            }).then((simResult) => {
+              if (simResult.isConfirmed) {
+                Swal.fire({
+                  title: 'Verifikasi Pembayaran...',
+                  didOpen: () => { Swal.showLoading(); }
+                });
+                google.script.run.withSuccessHandler((pembayaranRes) => {
+                  Swal.close();
+                  if (pembayaranRes.status === 'success') {
+                    Swal.fire('Pembayaran Berhasil!', 'Status pesanan Anda telah otomatis diperbarui menjadi Lunas.', 'success');
+                  } else {
+                    Swal.fire('Gagal Verifikasi', 'Gagal memverifikasi status pembayaran.', 'error');
+                  }
+                }).selesaikanPembayaranOnline(idOrder, total, qty);
               }
             });
-          }
-        });
-      }
-
-      function handleFileSelected(input) {
-        if (input.files && input.files[0]) {
-          const reader = new FileReader();
-          reader.onload = function (e) {
-            document.getElementById('m_gambar').value = e.target.result;
-            Toast.fire({icon: 'success', title: 'File gambar terpilih'});
-          };
-          reader.readAsDataURL(input.files[0]);
-        }
-      }
-
-      function animateNumber(id, target, isCurrency) {
-        const el = document.getElementById(id);
-        if (!el) return;
-        let start = 0;
-        let currentText = el.innerText.replace(/[^0-9]/g, '');
-        if (currentText) start = parseInt(currentText) || 0;
-        
-        const duration = 1000;
-        const startTime = performance.now();
-        
-        function update(currentTime) {
-          const elapsed = currentTime - startTime;
-          const progress = Math.min(elapsed / duration, 1);
-          const currentVal = Math.floor(start + progress * (target - start));
-          if (isCurrency) {
-            el.innerText = "Rp " + currentVal.toLocaleString('id-ID');
-          } else {
-            el.innerText = currentVal.toLocaleString('id-ID');
-          }
-          if (progress < 1) {
-            requestAnimationFrame(update);
-          } else {
-            if (isCurrency) {
-              el.innerText = "Rp " + target.toLocaleString('id-ID');
-            } else {
-              el.innerText = target.toLocaleString('id-ID');
-            }
-          }
-        }
-        requestAnimationFrame(update);
-      }
-      
-      // FIXED: call loadAdminMenu() instead of non-existent loadAdminTableMenu()
-      function hapusMenu(id) { 
-        Swal.fire({
-          title: 'Hapus Menu?', 
-          icon: 'warning', 
-          showCancelButton: true
-        }).then(r => { 
-          if(r.isConfirmed) google.script.run.withSuccessHandler(()=>loadAdminMenu()).hapusMenu(id); 
-        }); 
-      }
-      
-      function loadAdminUser() {
-        google.script.run.withSuccessHandler(d => {
-          let html = ''; 
-          d.forEach(u => { 
-            html += `
-              <tr class="border-b border-white/5 hover:bg-white/5 transition">
-                <td class="py-4 px-4 font-bold text-[var(--text-primary)] tracking-wide">${u.id_user}</td>
-                <td class="px-4">
-                  <span class="bg-ochre-300/10 text-ochre-300 border border-ochre-300/20 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest">
-                    ${u.role==1?'Admin':u.role==2?'Kasir':'Dapur'}
-                  </span>
-                </td>
-              </tr>`; 
-          });
-          document.getElementById('tblUser').innerHTML = html;
-        }).getUserData();
-      }
-
-      function simpanUser() {
-        let id = document.getElementById('u_id').value.trim();
-        let pass = document.getElementById('u_pass').value.trim();
-        let role = document.getElementById('u_role').value;
-        if(!id || !pass) return Swal.fire('Oops', 'Lengkapi ID dan password!', 'warning');
-        
-        // Simpan user via backend sheet appendRow
-        google.script.run.withSuccessHandler(() => {
-          document.getElementById('u_id').value = '';
-          document.getElementById('u_pass').value = '';
-          loadAdminUser();
-          Toast.fire({icon: 'success', title: 'Staf disimpan'});
-        }).tambahMenuBaruUser(id, pass, role); // We will define this simple helper in sheet
-      }
-
-      // ==========================================
-      // KASIR & KITCHEN ALUR
-      // ==========================================
-      function bukaInputKasir() {
-        document.getElementById('modalInputKasir').classList.remove('hidden');
-        let sel = document.getElementById('pilih_menu'); sel.innerHTML = '';
-        allMenusDb.forEach(m => { 
-          sel.innerHTML += `<option value="${m.id_menu}" data-nama="${m.nama_menu}" data-harga="${m.harga_menu}" data-pajak="${m.pajak_menu}">${m.nama_menu} - Rp ${parseInt(m.harga_menu).toLocaleString('id-ID')}</option>`; 
-        });
-      }
-      function tambahKeKeranjangKasir() {
-        let sel = document.getElementById('pilih_menu'); let opt = sel.options[sel.selectedIndex]; let qty = parseInt(document.getElementById('pilih_qty').value);
-        if(!opt) return;
-        let exist = keranjangKasir.find(x => x.id_menu === sel.value);
-        if(exist) exist.qty += qty; else keranjangKasir.push({ id_menu: sel.value, nama_menu: opt.dataset.nama, harga_menu: parseInt(opt.dataset.harga), pajak_menu: parseFloat(opt.dataset.pajak), qty: qty });
-        renderKeranjangKasir();
-      }
-      function renderKeranjangKasir() {
-        let ul = document.getElementById('daftarKeranjangKasir'); ul.innerHTML = ''; let t = 0;
-        keranjangKasir.forEach((i, idx) => {
-          let sub = Math.round((i.harga_menu * i.qty) + (i.harga_menu * i.qty * i.pajak_menu/100)); t += sub;
-          ul.innerHTML += `<li class="flex justify-between border-b border-white/5 pb-2 text-xs font-semibold"><span class="tracking-tight uppercase text-white">${i.nama_menu} x${i.qty}</span><span class="tracking-wide text-ochre-300">Rp ${sub.toLocaleString('id-ID')} <button onclick="keranjangKasir.splice(${idx},1); renderKeranjangKasir()" class="text-red-400 ml-2 font-bold hover:text-red-600">×</button></span></li>`;
-        });
-        document.getElementById('totalHargaKeranjangKasir').innerText = 'Rp ' + t.toLocaleString('id-ID');
-      }
-      function prosesCheckoutKasir() {
-        if(!keranjangKasir.length) return;
-        let nm = document.getElementById('namaPelangganKasir').value; let btn = document.getElementById('btnCheckoutKasir'); btn.disabled = true; btn.innerText = "MENGIRIM PESANAN...";
-        google.script.run.withSuccessHandler(() => {
-          document.getElementById('modalInputKasir').classList.add('hidden');
-          keranjangKasir = []; renderKeranjangKasir(); document.getElementById('namaPelangganKasir').value = '';
-          btn.disabled = false; btn.innerText = "KIRIM KE DAPUR"; loadOrders(); Toast.fire({icon:'success', title:'Terkirim'});
-        }).simpanPesananBatch(nm, keranjangKasir);
-      }
-
-      function loadOrders() {
-        google.script.run.withSuccessHandler(data => {
-          const group = {};
-          data.forEach(item => {
-            if(!group[item.id_order]) group[item.id_order] = { nama: item.nama_pengorder, status: item.status_order, items: [], total: 0 };
-            let sub = Math.round((item.harga_menu * item.qty) + (item.harga_menu * item.qty * item.pajak_menu/100));
-            group[item.id_order].items.push({...item, subtotal: sub}); group[item.id_order].total += sub;
-          });
-          
-          const cK = document.getElementById('containerKasir'), cT = document.getElementById('containerKitchen');
-          if(cK) cK.innerHTML = ''; if(cT) cT.innerHTML = '';
-
-          Object.keys(group).forEach(id => {
-             let d = group[id];
-             if(globalRole == 2 && d.status !== "Selesai") {
-                let btn = d.status == "Lunas" ? 
-                  '<button disabled class="w-full bg-emerald-950/20 text-emerald-400 border border-emerald-900/30 py-3 rounded-xl font-bold mt-3 tracking-widest text-[10px]">LUNAS</button>' : 
-                  `<button onclick="bukaBayar('${id}')" class="w-full bg-ochre-300 hover:bg-ochre-400 text-espresso-950 py-3 rounded-xl font-bold mt-3 shadow-lg tracking-widest transition text-[10px] uppercase">PROSES BAYAR</button>`;
-                cK.innerHTML += `
-                  <div class="premium-panel p-5 flex flex-col justify-between animate-fade rounded-2xl h-fit">
-                    <div>
-                      <div class="flex justify-between items-start mb-3 border-b border-white/5 pb-2">
-                        <h4 class="font-bold truncate w-2/3 text-xs uppercase tracking-wider text-[var(--text-primary)]">${d.nama}</h4>
-                        <span class="text-[8px] font-bold px-2 py-0.5 rounded-full tracking-wider uppercase border ${d.status=='Lunas'?'bg-emerald-500/10 text-emerald-400 border-emerald-500/20':'bg-amber-500/10 text-amber-400 border-amber-500/20'}">${d.status}</span>
-                      </div>
-                      <ul class="text-[11px] space-y-1 mb-4 text-[var(--text-secondary)] max-h-24 overflow-y-auto pr-1">
-                        ${d.items.map(i => `<li class="flex justify-between"><span>${i.nama_menu}</span><span class="text-ochre-300 font-bold">x${i.qty}</span></li>`).join('')}
-                      </ul>
-                      <div class="flex justify-between items-center pt-2 border-t border-white/5 mb-2">
-                        <span class="text-[9px] text-gray-500 uppercase font-bold">Total:</span>
-                        <p class="text-sm font-bold text-ochre-300 tracking-wide">Rp ${d.total.toLocaleString('id-ID')}</p>
-                      </div>
-                    </div>
-                    ${btn}
-                  </div>`;
-             }
-             if(globalRole == 3 && (d.status == "Pending" || d.status == "Lunas")) {
-                cT.innerHTML += `
-                  <div class="premium-panel p-6 rounded-2xl shadow-xl border-t-2 ${d.status=='Lunas'?'border-emerald-500':'border-ochre-300'} flex flex-col justify-between h-fit">
-                    <div>
-                      <div class="flex justify-between mb-4 border-b border-white/5 pb-2">
-                        <b class="uppercase font-bold tracking-wider text-xs text-[var(--text-primary)]">${d.nama}</b> 
-                        ${d.status=='Lunas'?'<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[8px] font-bold tracking-wider uppercase">LUNAS</span>':''}
-                      </div>
-                      <ul class="text-xs font-semibold space-y-2 mb-6 text-[var(--text-secondary)] max-h-36 overflow-y-auto pr-1">
-                        ${d.items.map(i => `<li class="border-b border-white/5 pb-1.5 tracking-tight flex justify-between"><span>${i.nama_menu}</span><span class="text-ochre-300 font-bold">x${i.qty}</span></li>`).join('')}
-                      </ul>
-                    </div>
-                    <button onclick="kitchenSelesai('${id}')" class="w-full bg-ochre-300 hover:bg-ochre-400 text-espresso-950 py-3 rounded-xl font-bold transition active:scale-95 tracking-widest uppercase text-[10px]">SELESAI MASAK ✅</button>
-                  </div>`;
+          } else if (snapRes.status === 'success') {
+            window.snap.pay(snapRes.token, {
+              onSuccess: function(result) {
+                Swal.fire({
+                  title: 'Menyelesaikan Pesanan...',
+                  didOpen: () => { Swal.showLoading(); }
+                });
+                google.script.run.withSuccessHandler(() => {
+                  Swal.close();
+                  Swal.fire('Pembayaran Berhasil!', 'Terima kasih, pesanan Anda sedang diproses oleh dapur.', 'success');
+                }).selesaikanPembayaranOnline(idOrder, total, qty);
+              },
+              onPending: function(result) {
+                Swal.fire('Menunggu Pembayaran', 'Harap selesaikan pembayaran Anda sesuai instruksi.', 'warning');
+              },
+              onError: function(result) {
+                Swal.fire('Pembayaran Gagal', 'Terjadi kesalahan saat memproses pembayaran online.', 'error');
+              },
+              onClose: function() {
+                Swal.fire('Pembayaran Dibatalkan', 'Anda menutup pop-up pembayaran.', 'info');
               }
-          });
-          globalOrders = group;
-        }).getPesananAktif();
+            });
+          } else {
+            Swal.fire('Gagal Pembayaran Online', snapRes.message || 'Gagal memuat sistem pembayaran.', 'error');
+          }
+        }).dapatkanTokenMidtrans(idOrder, total, customerName);
       }
 
-      function cekMetodeBayar() {
-        let val = document.getElementById('mMetode').value.toLowerCase();
-        let inputUang = document.getElementById('mUang');
-        
-        if (val !== 'tunai' && val !== 'cash') {
-          inputUang.value = currentTrx.total.toLocaleString('id-ID');
-          inputUang.readOnly = true;
-          inputUang.classList.remove('text-ochre-300');
-          inputUang.classList.add('text-gray-500', 'bg-black/40');
-        } else {
-          inputUang.readOnly = false;
-          inputUang.classList.add('text-ochre-300');
-          inputUang.classList.remove('text-gray-500', 'bg-black/40');
-        }
+      function tampilkanListPesananKasir(idOrder, items, total, namaMeja) {
+        let itemsHtml = items.map(i => {
+          let sub = Math.round((i.harga_menu * i.qty) + (i.harga_menu * i.qty * i.pajak_menu/100));
+          return `
+            <div class="flex justify-between border-b border-white/5 py-1 text-xs">
+              <span class="text-white">${i.nama_menu} x${i.qty}</span>
+              <span class="text-ochre-300">Rp ${sub.toLocaleString('id-ID')}</span>
+            </div>
+          `;
+        }).join('');
+
+        Swal.fire({
+          title: 'Tunjukkan Ke Kasir',
+          html: `
+            <div class="text-left space-y-3">
+              <div class="bg-black/30 p-4 rounded-xl border border-white/5 font-semibold">
+                <p class="text-[10px] text-gray-400 uppercase tracking-wider">ID PESANAN</p>
+                <p class="text-ochre-300 font-bold mb-2">${idOrder}</p>
+                <p class="text-[10px] text-gray-400 uppercase tracking-wider">MEJA / NAMA</p>
+                <p class="text-white font-bold">${namaMeja}</p>
+              </div>
+              <div class="max-h-40 overflow-y-auto pr-1">
+                ${itemsHtml}
+              </div>
+              <div class="flex justify-between font-black text-md border-t border-white/5 pt-2 text-white">
+                <span>Total Tagihan:</span>
+                <span class="text-ochre-300">Rp ${total.toLocaleString('id-ID')}</span>
+              </div>
+              <p class="text-[10px] text-center text-gray-400 italic mt-3">Silakan menuju kasir untuk melakukan pembayaran.</p>
+            </div>
+          `,
+          icon: 'info',
+          confirmButtonText: 'Selesai',
+          customClass: {
+            confirmButton: 'swal2-confirm'
+          }
+        });
       }
 
-      function bukaBayar(id) {
-        currentTrx = globalOrders[id]; currentTrx.id = id;
-        document.getElementById('mNama').innerText = currentTrx.nama;
-        document.getElementById('mId').innerText = id;
-        document.getElementById('mTotal').innerText = 'Rp ' + currentTrx.total.toLocaleString('id-ID');
-        document.getElementById('mItems').innerHTML = currentTrx.items.map(i => `<li class="flex justify-between tracking-tight"><span>${i.nama_menu} x${i.qty}</span><span class="text-white">Rp ${i.subtotal.toLocaleString('id-ID')}</span></li>`).join('');
-        document.getElementById('mUang').value = currentTrx.total.toLocaleString('id-ID');
-        
-        let selPay = document.getElementById('mMetode'); selPay.innerHTML = '';
-        allPaymentsDb.forEach(p => selPay.innerHTML += `<option value="${p}">${p}</option>`);
-        
-        cekMetodeBayar(); 
-        document.getElementById('modalBayar').classList.remove('hidden');
-      }
-
-      function prosesBayar() {
-        let b = delTitik(document.getElementById('mUang').value);
-        if(b < currentTrx.total) return Swal.fire('Oops', 'Uang pembayaran kurang!', 'error');
-        const btn = document.getElementById('btnBayarSekarang'); btn.disabled = true; btn.innerText = "PROSES...";
-        google.script.run.withSuccessHandler(() => { 
-          Swal.fire('Sukses', `Kembalian: Rp ${(b-currentTrx.total).toLocaleString('id-ID')}`, 'success');
-          document.getElementById('modalBayar').classList.add('hidden'); btn.disabled = false; btn.innerText = "KONFIRMASI PEMBAYARAN"; loadOrders();
-        }).prosesPembayaran(currentTrx.id, document.getElementById('mMetode').value, currentTrx.items.reduce((a,b)=>a+b.qty,0), currentTrx.total, b, b-currentTrx.total);
-      }
-
-      function kitchenSelesai(id) {
-        google.script.run.withSuccessHandler(() => { 
-          Toast.fire({icon:'success', title:'Pesanan Selesai'}); 
-          loadOrders(); 
-        }).updateStatusOrder(id, "Siap Disajikan");
-      }
-    </script>
-  </body>
-</html>
+      // ==========================
