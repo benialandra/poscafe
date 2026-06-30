@@ -19,9 +19,9 @@ function getSheet(sheetName) {
     }
     if (sheetName === "menu") {
       sheet.appendRow(["id_menu", "nama_menu", "harga_menu", "pajak_menu", "gambar"]);
-      sheet.appendRow(["M1", "ESPRESSO", 18000, 11, "https://images.unsplash.com/photo-1510972527409-cef19039ae65?w=500&q=80"]);
-      sheet.appendRow(["M2", "CAPPUCCINO", 28000, 11, "https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=500&q=80"]);
-      sheet.appendRow(["M3", "CROISSANT DE PARIS", 25000, 11, "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=500&q=80"]);
+      sheet.appendRow(["M1", "ESPRESSO", 18000, 11, "https://images.unsplash.com/photo-1510972527409-cef19039ae65?auto=format&fit=crop&w=600&q=80"]);
+      sheet.appendRow(["M2", "CAPPUCCINO", 28000, 11, "https://images.unsplash.com/photo-1572442388796-11668a67e53d?auto=format&fit=crop&w=600&q=80"]);
+      sheet.appendRow(["M3", "CROISSANT DE PARIS", 25000, 11, "https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=600&q=80"]);
     }
     if (sheetName === "order") {
       sheet.appendRow(["id_order", "menu_order", "qty_order", "nama_pengorder", "tgl_order", "status_order"]);
@@ -42,9 +42,9 @@ function getSheet(sheetName) {
       sheet.appendRow(["kitchen", "kitchen123", "3"]);
     }
     if (sheetName === "menu") {
-      sheet.appendRow(["M1", "ESPRESSO", 18000, 11, "https://images.unsplash.com/photo-1510972527409-cef19039ae65?w=500&q=80"]);
-      sheet.appendRow(["M2", "CAPPUCCINO", 28000, 11, "https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=500&q=80"]);
-      sheet.appendRow(["M3", "CROISSANT DE PARIS", 25000, 11, "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=500&q=80"]);
+      sheet.appendRow(["M1", "ESPRESSO", 18000, 11, "https://images.unsplash.com/photo-1510972527409-cef19039ae65?auto=format&fit=crop&w=600&q=80"]);
+      sheet.appendRow(["M2", "CAPPUCCINO", 28000, 11, "https://images.unsplash.com/photo-1572442388796-11668a67e53d?auto=format&fit=crop&w=600&q=80"]);
+      sheet.appendRow(["M3", "CROISSANT DE PARIS", 25000, 11, "https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=600&q=80"]);
     }
   }
 
@@ -104,9 +104,7 @@ function getUserData() {
 // ==========================================
 // CONFIG: MIDTRANS (SANDBOX / PRODUCTION)
 // ==========================================
-// PENTING: Untuk keamanan, jangan hardcode Server Key Anda di sini jika di-push ke GitHub.
-// Simpan Server Key Anda di editor Google Apps Script: Project Settings -> Script Properties dengan nama property: MIDTRANS_SERVER_KEY
-var MIDTRANS_SERVER_KEY = PropertiesService.getScriptProperties().getProperty("MIDTRANS_SERVER_KEY") || ""; 
+var MIDTRANS_SERVER_KEY = PropertiesService.getScriptProperties().getProperty("MIDTRANS_SERVER_KEY") || ""; // Diambil dari Script Properties untuk keamanan
 var MIDTRANS_IS_PRODUCTION = false;
 
 function simpanPesananBatch(namaPemesan, keranjang) {

@@ -860,4 +860,727 @@
         });
       }
 
-      // ==========================
+      // ==========================================
+      // ADMIN & ANALYTICS
+      // ==========================================
+      function switchTab(t) {
+        ['dash','menu','user'].forEach(id => document.getElementById('tab-'+id).classList.add('hidden'));
+        document.getElementById('tab-'+t).classList.remove('hidden');
+        
+        const buttons = document.querySelectorAll('.admin-tab-btn');
+        buttons.forEach(btn => {
+          if (btn.innerText.toLowerCase().includes(t)) {
+            btn.classList.remove('text-gray-400', 'border-transparent');
+            btn.classList.add('text-ochre-300', 'border-ochre-300');
+          } else {
+            btn.classList.remove('text-ochre-300', 'border-ochre-300');
+            btn.classList.add('text-gray-400', 'border-transparent');
+          }
+        });
+
+        if(intervalAdminDash) clearInterval(intervalAdminDash);
+        if(t=='dash') { loadDash(); intervalAdminDash = setInterval(loadDash, 15000); } 
+        if(t=='menu') loadAdminMenu(); 
+        if(t=='user') loadAdminUser();
+      }
+      
+      function loadDash() {
+        google.script.run.withSuccessHandler(d => {
+          animateNumber('dTotal', d.totalPendapatan, true);
+          animateNumber('dTrx', d.jumlahTransaksi, false);
+          
+          const isLight = document.body.classList.contains('theme-light');
+          const primaryText = isLight ? '#2d2621' : '#eae5dc';
+          const secondaryText = isLight ? '#70635c' : '#8f8983';
+          const gridColor = isLight ? 'rgba(143, 89, 43, 0.05)' : 'rgba(255,255,255,0.03)';
+          const accentColor = isLight ? '#a06a42' : '#d4a373';
+          const accentHover = isLight ? '#82502c' : '#c58e59';
+          const panelBg = isLight ? '#fcfbf9' : '#151210';
+          
+          const textSettings = { color: secondaryText, font: { family: '"Plus Jakarta Sans", sans-serif', size: 10 } };
+
+          if(chartRev) chartRev.destroy();
+          const ctxRev = document.getElementById('chartRevenue').getContext('2d');
+          const gradientRev = ctxRev.createLinearGradient(0, 0, 0, 300);
+          gradientRev.addColorStop(0, isLight ? 'rgba(160,106,66,0.3)' : 'rgba(212,163,115,0.2)');
+          gradientRev.addColorStop(1, 'rgba(0,0,0,0)');
+
+          chartRev = new Chart(ctxRev, { 
+            type:'line', 
+            data:{ 
+              labels:d.chartLabels, 
+              datasets:[{ 
+                label:'Pendapatan', 
+                data:d.chartValues, 
+                borderColor:accentColor, 
+                backgroundColor:gradientRev, 
+                borderWidth:2.5, 
+                pointRadius:4, 
+                pointHoverRadius:6,
+                fill:true, 
+                tension:0.35 
+              }] 
+            },
+            options:{ 
+              responsive:true, 
+              maintainAspectRatio:false, 
+              plugins:{ 
+                legend:{display:false},
+                tooltip:{
+                  backgroundColor: panelBg,
+                  titleColor: primaryText,
+                  bodyColor: secondaryText,
+                  borderColor: accentColor,
+                  borderWidth: 1,
+                  padding: 10,
+                  cornerRadius: 12
+                }
+              }, 
+              scales:{ 
+                x:{ grid:{display:false}, ticks: textSettings }, 
+                y:{ beginAtZero:true, grid:{color: gridColor, borderDash:[4,4]}, ticks: textSettings } 
+              }, 
+              animation: {
+                duration: 1000,
+                easing: 'easeOutQuart'
+              } 
+            }
+          });
+
+          if(chartTop) chartTop.destroy();
+          chartTop = new Chart(document.getElementById('chartTopMenu'), { 
+            type:'bar', 
+            data:{ 
+              labels:d.topMenuLabels, 
+              datasets:[{ 
+                label:'Terjual', 
+                data:d.topMenuValues, 
+                backgroundColor:accentColor, 
+                hoverBackgroundColor:accentHover,
+                borderRadius:6 
+              }] 
+            },
+            options:{ 
+              responsive:true, 
+              maintainAspectRatio:false, 
+              plugins:{ 
+                legend:{display:false},
+                tooltip:{
+                  backgroundColor: panelBg,
+                  titleColor: primaryText,
+                  bodyColor: secondaryText,
+                  borderColor: accentColor,
+                  borderWidth: 1,
+                  padding: 10,
+                  cornerRadius: 12
+                }
+              }, 
+              scales:{ 
+                x:{ grid:{display:false}, ticks: textSettings }, 
+                y:{ beginAtZero:true, grid:{color: gridColor}, ticks: textSettings } 
+              }, 
+              animation: {
+                duration: 1200,
+                easing: 'easeOutQuart'
+              } 
+            }
+          });
+
+          if(chartPay) chartPay.destroy();
+          const ctxPay = document.getElementById('chartPayment').getContext('2d');
+          
+          const gradientG = ctxPay.createLinearGradient(0, 0, 0, 300); 
+          gradientG.addColorStop(0, accentColor); 
+          gradientG.addColorStop(1, isLight ? '#82502c' : '#9b5f33');
+
+          const gradientB = ctxPay.createLinearGradient(0, 0, 0, 300); 
+          gradientB.addColorStop(0, isLight ? '#70635c' : '#eae5dc'); 
+          gradientB.addColorStop(1, isLight ? '#2d2621' : '#a28266');
+
+          const gradientP = ctxPay.createLinearGradient(0, 0, 0, 300); 
+          gradientP.addColorStop(0, isLight ? '#e5cfb1' : '#5c402e'); 
+          gradientP.addColorStop(1, isLight ? '#a06a42' : '#231812');
+
+          chartPay = new Chart(ctxPay, { 
+            type:'doughnut', 
+            data:{ 
+              labels:d.paymentLabels, 
+              datasets:[{ 
+                data:d.paymentValues, 
+                backgroundColor:[gradientG, gradientB, gradientP], 
+                borderWidth: 0,
+                hoverOffset: 10
+              }] 
+            },
+            options:{ 
+              responsive:true, 
+              maintainAspectRatio:false, 
+              cutout:'75%', 
+              layout: { padding: 8 },
+              plugins:{ 
+                legend:{ 
+                  position:'right', 
+                  labels: { font: { family: '"Plus Jakarta Sans", sans-serif', size: 10 }, color: primaryText, padding: 10 } 
+                },
+                tooltip: { 
+                  backgroundColor: panelBg, 
+                  titleColor: primaryText,
+                  bodyColor: secondaryText,
+                  borderColor: accentColor,
+                  borderWidth: 1,
+                  padding: 10, 
+                  cornerRadius: 12, 
+                  displayColors: false 
+                }
+              }, 
+              animation: { 
+                duration: 1400,
+                easing: 'easeOutQuart'
+              }
+            }
+          });
+
+          if(chartStaff) chartStaff.destroy();
+          const ctxStaff = document.getElementById('chartStaffEfficiency').getContext('2d');
+          chartStaff = new Chart(ctxStaff, {
+            type: 'bar',
+            data: {
+              labels: d.chartLabels,
+              datasets: [
+                {
+                  label: 'Jumlah Transaksi',
+                  type: 'bar',
+                  data: d.chartTrxCountValues,
+                  backgroundColor: accentColor,
+                  borderRadius: 6,
+                  yAxisID: 'y'
+                },
+                {
+                  label: 'Jumlah Karyawan Aktif',
+                  type: 'line',
+                  data: d.chartStaffValues,
+                  borderColor: isLight ? '#70635c' : '#eae5dc',
+                  borderWidth: 2.5,
+                  pointRadius: 4,
+                  fill: false,
+                  tension: 0.35,
+                  yAxisID: 'y1'
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'top',
+                  labels: { font: { family: '"Plus Jakarta Sans", sans-serif', size: 10 }, color: primaryText }
+                },
+                tooltip: {
+                  backgroundColor: panelBg,
+                  titleColor: primaryText,
+                  bodyColor: secondaryText,
+                  borderColor: accentColor,
+                  borderWidth: 1,
+                  padding: 10,
+                  cornerRadius: 12
+                }
+              },
+              scales: {
+                x: { grid: { display: false }, ticks: textSettings },
+                y: {
+                  type: 'linear',
+                  display: true,
+                  position: 'left',
+                  grid: { color: gridColor },
+                  ticks: textSettings,
+                  title: { display: true, text: 'Transaksi', color: secondaryText, font: { size: 9, weight: 'bold' } }
+                },
+                y1: {
+                  type: 'linear',
+                  display: true,
+                  position: 'right',
+                  grid: { drawOnChartArea: false },
+                  ticks: { ...textSettings, stepSize: 1 },
+                  title: { display: true, text: 'Karyawan', color: secondaryText, font: { size: 9, weight: 'bold' } }
+                }
+              },
+              animation: {
+                duration: 1200,
+                easing: 'easeOutQuart'
+              }
+            }
+          });
+        }).getDashboardData();
+      }
+
+      function loadAdminMenu() {
+        document.getElementById('tblMenu').innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500 font-bold">Loading...</td></tr>';
+        google.script.run.withSuccessHandler(d => { allMenusDb = d; renderTableMenuBerbasisClient(); }).getMenuData();
+      }
+      function searchAdminMenu(q) { adminMenuSearchQuery = q.toLowerCase(); adminMenuCurrentPage = 1; renderTableMenuBerbasisClient(); }
+      function changeAdminMenuPerPage(val) { adminMenuPerPage = parseInt(val); adminMenuCurrentPage = 1; renderTableMenuBerbasisClient(); }
+      function changeAdminMenuPage(page) { adminMenuCurrentPage = page; renderTableMenuBerbasisClient(); }
+
+      function renderTableMenuBerbasisClient() {
+        const tbody = document.getElementById('tblMenu'); const pagination = document.getElementById('paginationMenuAdmin');
+        tbody.innerHTML = ''; pagination.innerHTML = '';
+        let filtered = allMenusDb;
+        if(adminMenuSearchQuery !== "") filtered = allMenusDb.filter(m => m.nama_menu.toLowerCase().includes(adminMenuSearchQuery));
+        if(filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-6 text-gray-500">Tidak ada menu aktif.</td></tr>'; return; }
+        const totalPages = Math.ceil(filtered.length / adminMenuPerPage);
+        if(adminMenuCurrentPage > totalPages) adminMenuCurrentPage = totalPages;
+        const start = (adminMenuCurrentPage - 1) * adminMenuPerPage;
+        const pageData = filtered.slice(start, start + adminMenuPerPage);
+        pageData.forEach(m => {
+          tbody.innerHTML += `
+            <tr class="border-b border-white/5 hover:bg-white/5 transition">
+              <td class="py-3 px-4 font-bold uppercase tracking-wide text-[var(--text-primary)]">${m.nama_menu}</td>
+              <td class="px-4 font-bold text-ochre-300">Rp ${parseInt(m.harga_menu).toLocaleString('id-ID')}</td>
+              <td class="px-4 text-[var(--text-secondary)]">${m.pajak_menu}%</td>
+              <td class="text-right px-4">
+                <button onclick="mulaiEditMenu('${m.id_menu}')" class="text-ochre-300 hover:text-ochre-400 bg-ochre-300/10 px-3 py-1.5 rounded-lg border border-ochre-300/20 transition text-[9px] uppercase tracking-wider mr-1.5">Edit</button>
+                <button onclick="hapusMenu('${m.id_menu}')" class="text-red-400 hover:text-red-500 bg-red-950/20 px-3 py-1.5 rounded-lg border border-red-900/30 transition text-[9px] uppercase tracking-wider">Hapus</button>
+              </td>
+            </tr>`;
+        });
+        if(totalPages > 1) {
+          for(let i=1; i<=totalPages; i++) {
+            let active = i === adminMenuCurrentPage ? "bg-ochre-300 text-espresso-950 border-ochre-300" : "bg-white/5 text-gray-400 border-white/10 hover:border-ochre-300/30 hover:text-ochre-300";
+            pagination.innerHTML += `<button onclick="changeAdminMenuPage(${i})" class="px-2.5 py-1 mx-0.5 rounded font-bold transition border text-[10px] ${active}">${i}</button>`;
+          }
+        }
+      }
+
+      function simpanMenu() {
+        let d = { 
+          nama_menu: document.getElementById('m_nama').value.toUpperCase(), 
+          harga_menu: delTitik(document.getElementById('m_harga').value), 
+          pajak_menu: document.getElementById('m_pajak').value || 11, 
+          gambar: document.getElementById('m_gambar').value || 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500&q=80'
+        };
+        if(!d.nama_menu || !d.harga_menu) return Swal.fire({
+          title: 'Lengkapi Data',
+          text: 'Harap isi nama sajian dan harganya.',
+          icon: 'warning'
+        });
+
+        if (editingMenuId) {
+          // Edit Mode
+          google.script.run.withSuccessHandler(() => { 
+            batalEditMenu();
+            loadAdminMenu(); 
+            Toast.fire({icon:'success', title:'Menu diperbarui'}); 
+          }).updateMenu(editingMenuId, d);
+        } else {
+          // Create Mode
+          google.script.run.withSuccessHandler(() => { 
+            document.getElementById('m_nama').value=''; 
+            document.getElementById('m_harga').value=''; 
+            document.getElementById('m_gambar').value=''; 
+            loadAdminMenu(); 
+            Toast.fire({icon:'success', title:'Menu disimpan'}); 
+          }).tambahMenuBaru(d);
+        }
+      }
+
+      function mulaiEditMenu(id) {
+        let m = allMenusDb.find(x => x.id_menu == id);
+        if(!m) return;
+        editingMenuId = id;
+        document.getElementById('m_nama').value = m.nama_menu;
+        document.getElementById('m_harga').value = parseInt(m.harga_menu).toLocaleString('id-ID');
+        document.getElementById('m_pajak').value = m.pajak_menu;
+        document.getElementById('m_gambar').value = m.gambar;
+        
+        document.getElementById('menuFormHeader').innerText = "Edit Menu Sajian";
+        document.getElementById('btnSimpanMenu').innerText = "PERBARUI MENU";
+        
+        if(!document.getElementById('btnBatalEditMenu')) {
+          const btnBatal = document.createElement('button');
+          btnBatal.id = 'btnBatalEditMenu';
+          btnBatal.className = 'w-full bg-white/5 hover:bg-white/10 text-[var(--text-primary)] font-bold py-2.5 rounded-xl border border-white/10 transition text-xs tracking-widest uppercase mt-2';
+          btnBatal.innerText = 'BATAL EDIT';
+          btnBatal.onclick = batalEditMenu;
+          document.getElementById('menuFormContainer').appendChild(btnBatal);
+        }
+      }
+
+      function batalEditMenu() {
+        editingMenuId = null;
+        document.getElementById('m_nama').value = '';
+        document.getElementById('m_harga').value = '';
+        document.getElementById('m_pajak').value = 11;
+        document.getElementById('m_gambar').value = '';
+        
+        document.getElementById('menuFormHeader').innerText = "Tambah Menu Baru";
+        document.getElementById('btnSimpanMenu').innerText = "SIMPAN MENU";
+        
+        const btnBatal = document.getElementById('btnBatalEditMenu');
+        if(btnBatal) btnBatal.remove();
+      }
+
+      function showImageOptions() {
+        const menuName = document.getElementById('m_nama').value.trim();
+        Swal.fire({
+          title: 'Sumber Gambar Sajian',
+          html: `
+            <p class="text-[11px] mb-4 text-[var(--text-secondary)]">Pilih metode untuk menambahkan gambar menu:</p>
+            <div class="flex flex-col gap-2">
+              <button id="swalBtnUpload" class="w-full bg-ochre-300 hover:bg-ochre-400 text-espresso-950 font-bold py-3 rounded-xl transition text-xs tracking-wider uppercase">📁 Upload File</button>
+              <button id="swalBtnUnsplash" class="w-full bg-white/5 border border-white/10 hover:border-ochre-300/30 hover:text-ochre-300 text-white font-bold py-3 rounded-xl transition text-xs tracking-wider uppercase">🔍 Cari Gambar Unsplash</button>
+              <button id="swalBtnUrl" class="w-full bg-white/5 border border-white/10 hover:border-white/20 text-white font-bold py-3 rounded-xl transition text-xs tracking-wider uppercase">🔗 Masukkan URL</button>
+            </div>
+          `,
+          showConfirmButton: false,
+          showCancelButton: true,
+          cancelButtonText: 'BATAL',
+          customClass: {
+            cancelButton: 'swal2-cancel'
+          },
+          didOpen: () => {
+            document.getElementById('swalBtnUpload').onclick = () => {
+              Swal.close();
+              document.getElementById('m_file_input').click();
+            };
+            document.getElementById('swalBtnUnsplash').onclick = () => {
+              Swal.close();
+              cariUnsplashImage(menuName);
+            };
+            document.getElementById('swalBtnUrl').onclick = () => {
+              Swal.close();
+              Swal.fire({
+                title: 'Masukkan URL Gambar',
+                input: 'url',
+                inputPlaceholder: 'https://example.com/image.jpg',
+                showCancelButton: true,
+                confirmButtonText: 'Simpan',
+                customClass: {
+                  confirmButton: 'swal2-confirm',
+                  cancelButton: 'swal2-cancel'
+                }
+              }).then((urlResult) => {
+                if (urlResult.value) {
+                  document.getElementById('m_gambar').value = urlResult.value;
+                }
+              });
+            };
+          }
+        });
+      }
+
+      function cariUnsplashImage(menuName) {
+        const query = menuName ? menuName.toUpperCase().trim() : "";
+        
+        // Curated categories
+        const gallery = [
+          { name: "Espresso / Black Coffee", url: "https://images.unsplash.com/photo-1510972527409-cef19039ae65?auto=format&fit=crop&w=600&q=80" },
+          { name: "Cappuccino / Latte Art", url: "https://images.unsplash.com/photo-1572442388796-11668a67e53d?auto=format&fit=crop&w=600&q=80" },
+          { name: "Iced Coffee / Cold Brew", url: "https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&w=600&q=80" },
+          { name: "Teh / Tea / Matcha", url: "https://images.unsplash.com/photo-1576092768241-dec231879fc3?auto=format&fit=crop&w=600&q=80" },
+          { name: "Croissant / Pastry", url: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=600&q=80" },
+          { name: "Kue / Cake Slice", url: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=600&q=80" },
+          { name: "Waffle / Pancake", url: "https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?auto=format&fit=crop&w=600&q=80" },
+          { name: "Burger / Western Food", url: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=600&q=80" },
+          { name: "Pasta / Spaghetti", url: "https://images.unsplash.com/photo-1516100882582-76c9a2867592?auto=format&fit=crop&w=600&q=80" },
+          { name: "Nasi Goreng / Rice", url: "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=600&q=80" }
+        ];
+
+        // Let's filter or sort based on query matching
+        let matchedIndex = -1;
+        if (query) {
+          if (query.includes("ESPRESSO") || query.includes("HITAM") || query.includes("BLACK")) matchedIndex = 0;
+          else if (query.includes("CAPPUCCINO") || query.includes("LATTE") || query.includes("KOPI SUSU")) matchedIndex = 1;
+          else if (query.includes("ES") || query.includes("ICED") || query.includes("COLD")) matchedIndex = 2;
+          else if (query.includes("TEH") || query.includes("TEA") || query.includes("MATCHA")) matchedIndex = 3;
+          else if (query.includes("CROISSANT") || query.includes("ROTI") || query.includes("PASTRY")) matchedIndex = 4;
+          else if (query.includes("CAKE") || query.includes("KUE") || query.includes("DESSERT")) matchedIndex = 5;
+          else if (query.includes("WAFFLE") || query.includes("PANCAKE")) matchedIndex = 6;
+          else if (query.includes("BURGER") || query.includes("SANDWICH") || query.includes("DAGING")) matchedIndex = 7;
+          else if (query.includes("SPAGHETTI") || query.includes("PASTA") || query.includes("MIE")) matchedIndex = 8;
+          else if (query.includes("NASI") || query.includes("RICE") || query.includes("GORENG")) matchedIndex = 9;
+        }
+
+        // Generate Grid
+        let gridHtml = gallery.map((item, idx) => {
+          const isSelected = idx === matchedIndex;
+          const borderStyle = isSelected ? 'border-2 border-ochre-300 scale-95 shadow-lg' : 'border border-white/5 opacity-70 hover:opacity-100';
+          return `
+            <div onclick="selectGalleryImage('${item.url}')" class="cursor-pointer rounded-xl overflow-hidden premium-card transition flex flex-col items-center p-1 ${borderStyle}">
+              <div class="h-16 w-full bg-cover bg-center rounded-lg" style="background-image: url('${item.url}')"></div>
+              <p class="text-[8px] py-1 px-1 text-center font-bold truncate w-full text-white mt-1">${item.name} ${isSelected ? '⭐️' : ''}</p>
+            </div>
+          `;
+        }).join('');
+
+        const defaultTag = query ? query.toLowerCase() : "coffee";
+        
+        Swal.fire({
+          title: 'Galeri Gambar Premium',
+          html: `
+            <div class="mb-4 text-left">
+              <p class="text-[10px] text-gray-400 mb-2">Pilih dari koleksi kurasi kami yang paling cocok dengan menu <b>"${menuName || 'Sajian'}"</b>:</p>
+              <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 max-h-60 overflow-y-auto p-1">
+                ${gridHtml}
+              </div>
+            </div>
+            <div class="border-t border-white/5 pt-4 text-left">
+              <p class="text-[10px] text-gray-400 mb-2">Atau generate dinamis berdasarkan tag Unsplash:</p>
+              <div class="flex gap-2">
+                <input type="text" id="unsplashCustomTag" value="${defaultTag}" placeholder="misal: matcha, muffin, salad" class="flex-grow premium-input px-3 py-2 rounded-xl text-xs font-semibold">
+                <button onclick="generateCustomUnsplashUrl()" class="bg-ochre-300 hover:bg-ochre-400 text-espresso-950 font-bold px-4 rounded-xl text-xs uppercase tracking-wider transition">Generate</button>
+              </div>
+            </div>
+          `,
+          showConfirmButton: false,
+          showCancelButton: true,
+          cancelButtonText: 'BATAL',
+          customClass: {
+            cancelButton: 'swal2-cancel'
+          }
+        });
+      }
+
+      window.selectGalleryImage = function(url) {
+        document.getElementById('m_gambar').value = url;
+        Swal.close();
+        Toast.fire({icon: 'success', title: 'Gambar galeri dipilih!'});
+      };
+
+      window.generateCustomUnsplashUrl = function() {
+        const tag = document.getElementById('unsplashCustomTag').value.trim() || 'coffee';
+        const url = 'https://images.unsplash.com/featured/600x400/?' + encodeURIComponent(tag);
+        document.getElementById('m_gambar').value = url;
+        Swal.close();
+        Toast.fire({icon: 'success', title: 'Gambar dinamis tag "' + tag + '" terpilih!'});
+      };
+
+
+      function handleFileSelected(input) {
+        if (input.files && input.files[0]) {
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            document.getElementById('m_gambar').value = e.target.result;
+            Toast.fire({icon: 'success', title: 'File gambar terpilih'});
+          };
+          reader.readAsDataURL(input.files[0]);
+        }
+      }
+
+      function animateNumber(id, target, isCurrency) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        let start = 0;
+        let currentText = el.innerText.replace(/[^0-9]/g, '');
+        if (currentText) start = parseInt(currentText) || 0;
+        
+        const duration = 1000;
+        const startTime = performance.now();
+        
+        function update(currentTime) {
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          const currentVal = Math.floor(start + progress * (target - start));
+          if (isCurrency) {
+            el.innerText = "Rp " + currentVal.toLocaleString('id-ID');
+          } else {
+            el.innerText = currentVal.toLocaleString('id-ID');
+          }
+          if (progress < 1) {
+            requestAnimationFrame(update);
+          } else {
+            if (isCurrency) {
+              el.innerText = "Rp " + target.toLocaleString('id-ID');
+            } else {
+              el.innerText = target.toLocaleString('id-ID');
+            }
+          }
+        }
+        requestAnimationFrame(update);
+      }
+      
+      // FIXED: call loadAdminMenu() instead of non-existent loadAdminTableMenu()
+      function hapusMenu(id) { 
+        Swal.fire({
+          title: 'Hapus Menu?', 
+          icon: 'warning', 
+          showCancelButton: true
+        }).then(r => { 
+          if(r.isConfirmed) google.script.run.withSuccessHandler(()=>loadAdminMenu()).hapusMenu(id); 
+        }); 
+      }
+      
+      function loadAdminUser() {
+        google.script.run.withSuccessHandler(d => {
+          let html = ''; 
+          d.forEach(u => { 
+            html += `
+              <tr class="border-b border-white/5 hover:bg-white/5 transition">
+                <td class="py-4 px-4 font-bold text-[var(--text-primary)] tracking-wide">${u.id_user}</td>
+                <td class="px-4">
+                  <span class="bg-ochre-300/10 text-ochre-300 border border-ochre-300/20 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest">
+                    ${u.role==1?'Admin':u.role==2?'Kasir':'Dapur'}
+                  </span>
+                </td>
+              </tr>`; 
+          });
+          document.getElementById('tblUser').innerHTML = html;
+        }).getUserData();
+      }
+
+      function simpanUser() {
+        let id = document.getElementById('u_id').value.trim();
+        let pass = document.getElementById('u_pass').value.trim();
+        let role = document.getElementById('u_role').value;
+        if(!id || !pass) return Swal.fire('Oops', 'Lengkapi ID dan password!', 'warning');
+        
+        // Simpan user via backend sheet appendRow
+        google.script.run.withSuccessHandler(() => {
+          document.getElementById('u_id').value = '';
+          document.getElementById('u_pass').value = '';
+          loadAdminUser();
+          Toast.fire({icon: 'success', title: 'Staf disimpan'});
+        }).tambahMenuBaruUser(id, pass, role); // We will define this simple helper in sheet
+      }
+
+      // ==========================================
+      // KASIR & KITCHEN ALUR
+      // ==========================================
+      function bukaInputKasir() {
+        document.getElementById('modalInputKasir').classList.remove('hidden');
+        let sel = document.getElementById('pilih_menu'); sel.innerHTML = '';
+        allMenusDb.forEach(m => { 
+          sel.innerHTML += `<option value="${m.id_menu}" data-nama="${m.nama_menu}" data-harga="${m.harga_menu}" data-pajak="${m.pajak_menu}">${m.nama_menu} - Rp ${parseInt(m.harga_menu).toLocaleString('id-ID')}</option>`; 
+        });
+      }
+      function tambahKeKeranjangKasir() {
+        let sel = document.getElementById('pilih_menu'); let opt = sel.options[sel.selectedIndex]; let qty = parseInt(document.getElementById('pilih_qty').value);
+        if(!opt) return;
+        let exist = keranjangKasir.find(x => x.id_menu === sel.value);
+        if(exist) exist.qty += qty; else keranjangKasir.push({ id_menu: sel.value, nama_menu: opt.dataset.nama, harga_menu: parseInt(opt.dataset.harga), pajak_menu: parseFloat(opt.dataset.pajak), qty: qty });
+        renderKeranjangKasir();
+      }
+      function renderKeranjangKasir() {
+        let ul = document.getElementById('daftarKeranjangKasir'); ul.innerHTML = ''; let t = 0;
+        keranjangKasir.forEach((i, idx) => {
+          let sub = Math.round((i.harga_menu * i.qty) + (i.harga_menu * i.qty * i.pajak_menu/100)); t += sub;
+          ul.innerHTML += `<li class="flex justify-between border-b border-white/5 pb-2 text-xs font-semibold"><span class="tracking-tight uppercase text-white">${i.nama_menu} x${i.qty}</span><span class="tracking-wide text-ochre-300">Rp ${sub.toLocaleString('id-ID')} <button onclick="keranjangKasir.splice(${idx},1); renderKeranjangKasir()" class="text-red-400 ml-2 font-bold hover:text-red-600">×</button></span></li>`;
+        });
+        document.getElementById('totalHargaKeranjangKasir').innerText = 'Rp ' + t.toLocaleString('id-ID');
+      }
+      function prosesCheckoutKasir() {
+        if(!keranjangKasir.length) return;
+        let nm = document.getElementById('namaPelangganKasir').value; let btn = document.getElementById('btnCheckoutKasir'); btn.disabled = true; btn.innerText = "MENGIRIM PESANAN...";
+        google.script.run.withSuccessHandler(() => {
+          document.getElementById('modalInputKasir').classList.add('hidden');
+          keranjangKasir = []; renderKeranjangKasir(); document.getElementById('namaPelangganKasir').value = '';
+          btn.disabled = false; btn.innerText = "KIRIM KE DAPUR"; loadOrders(); Toast.fire({icon:'success', title:'Terkirim'});
+        }).simpanPesananBatch(nm, keranjangKasir);
+      }
+
+      function loadOrders() {
+        google.script.run.withSuccessHandler(data => {
+          const group = {};
+          data.forEach(item => {
+            if(!group[item.id_order]) group[item.id_order] = { nama: item.nama_pengorder, status: item.status_order, items: [], total: 0 };
+            let sub = Math.round((item.harga_menu * item.qty) + (item.harga_menu * item.qty * item.pajak_menu/100));
+            group[item.id_order].items.push({...item, subtotal: sub}); group[item.id_order].total += sub;
+          });
+          
+          const cK = document.getElementById('containerKasir'), cT = document.getElementById('containerKitchen');
+          if(cK) cK.innerHTML = ''; if(cT) cT.innerHTML = '';
+
+          Object.keys(group).forEach(id => {
+             let d = group[id];
+             if(globalRole == 2 && d.status !== "Selesai") {
+                let btn = d.status == "Lunas" ? 
+                  '<button disabled class="w-full bg-emerald-950/20 text-emerald-400 border border-emerald-900/30 py-3 rounded-xl font-bold mt-3 tracking-widest text-[10px]">LUNAS</button>' : 
+                  `<button onclick="bukaBayar('${id}')" class="w-full bg-ochre-300 hover:bg-ochre-400 text-espresso-950 py-3 rounded-xl font-bold mt-3 shadow-lg tracking-widest transition text-[10px] uppercase">PROSES BAYAR</button>`;
+                cK.innerHTML += `
+                  <div class="premium-panel p-5 flex flex-col justify-between animate-fade rounded-2xl h-fit">
+                    <div>
+                      <div class="flex justify-between items-start mb-3 border-b border-white/5 pb-2">
+                        <h4 class="font-bold truncate w-2/3 text-xs uppercase tracking-wider text-[var(--text-primary)]">${d.nama}</h4>
+                        <span class="text-[8px] font-bold px-2 py-0.5 rounded-full tracking-wider uppercase border ${d.status=='Lunas'?'bg-emerald-500/10 text-emerald-400 border-emerald-500/20':'bg-amber-500/10 text-amber-400 border-amber-500/20'}">${d.status}</span>
+                      </div>
+                      <ul class="text-[11px] space-y-1 mb-4 text-[var(--text-secondary)] max-h-24 overflow-y-auto pr-1">
+                        ${d.items.map(i => `<li class="flex justify-between"><span>${i.nama_menu}</span><span class="text-ochre-300 font-bold">x${i.qty}</span></li>`).join('')}
+                      </ul>
+                      <div class="flex justify-between items-center pt-2 border-t border-white/5 mb-2">
+                        <span class="text-[9px] text-gray-500 uppercase font-bold">Total:</span>
+                        <p class="text-sm font-bold text-ochre-300 tracking-wide">Rp ${d.total.toLocaleString('id-ID')}</p>
+                      </div>
+                    </div>
+                    ${btn}
+                  </div>`;
+             }
+             if(globalRole == 3 && (d.status == "Pending" || d.status == "Lunas")) {
+                cT.innerHTML += `
+                  <div class="premium-panel p-6 rounded-2xl shadow-xl border-t-2 ${d.status=='Lunas'?'border-emerald-500':'border-ochre-300'} flex flex-col justify-between h-fit">
+                    <div>
+                      <div class="flex justify-between mb-4 border-b border-white/5 pb-2">
+                        <b class="uppercase font-bold tracking-wider text-xs text-[var(--text-primary)]">${d.nama}</b> 
+                        ${d.status=='Lunas'?'<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[8px] font-bold tracking-wider uppercase">LUNAS</span>':''}
+                      </div>
+                      <ul class="text-xs font-semibold space-y-2 mb-6 text-[var(--text-secondary)] max-h-36 overflow-y-auto pr-1">
+                        ${d.items.map(i => `<li class="border-b border-white/5 pb-1.5 tracking-tight flex justify-between"><span>${i.nama_menu}</span><span class="text-ochre-300 font-bold">x${i.qty}</span></li>`).join('')}
+                      </ul>
+                    </div>
+                    <button onclick="kitchenSelesai('${id}')" class="w-full bg-ochre-300 hover:bg-ochre-400 text-espresso-950 py-3 rounded-xl font-bold transition active:scale-95 tracking-widest uppercase text-[10px]">SELESAI MASAK ✅</button>
+                  </div>`;
+              }
+          });
+          globalOrders = group;
+        }).getPesananAktif();
+      }
+
+      function cekMetodeBayar() {
+        let val = document.getElementById('mMetode').value.toLowerCase();
+        let inputUang = document.getElementById('mUang');
+        
+        if (val !== 'tunai' && val !== 'cash') {
+          inputUang.value = currentTrx.total.toLocaleString('id-ID');
+          inputUang.readOnly = true;
+          inputUang.classList.remove('text-ochre-300');
+          inputUang.classList.add('text-gray-500', 'bg-black/40');
+        } else {
+          inputUang.readOnly = false;
+          inputUang.classList.add('text-ochre-300');
+          inputUang.classList.remove('text-gray-500', 'bg-black/40');
+        }
+      }
+
+      function bukaBayar(id) {
+        currentTrx = globalOrders[id]; currentTrx.id = id;
+        document.getElementById('mNama').innerText = currentTrx.nama;
+        document.getElementById('mId').innerText = id;
+        document.getElementById('mTotal').innerText = 'Rp ' + currentTrx.total.toLocaleString('id-ID');
+        document.getElementById('mItems').innerHTML = currentTrx.items.map(i => `<li class="flex justify-between tracking-tight"><span>${i.nama_menu} x${i.qty}</span><span class="text-white">Rp ${i.subtotal.toLocaleString('id-ID')}</span></li>`).join('');
+        document.getElementById('mUang').value = currentTrx.total.toLocaleString('id-ID');
+        
+        let selPay = document.getElementById('mMetode'); selPay.innerHTML = '';
+        allPaymentsDb.forEach(p => selPay.innerHTML += `<option value="${p}">${p}</option>`);
+        
+        cekMetodeBayar(); 
+        document.getElementById('modalBayar').classList.remove('hidden');
+      }
+
+      function prosesBayar() {
+        let b = delTitik(document.getElementById('mUang').value);
+        if(b < currentTrx.total) return Swal.fire('Oops', 'Uang pembayaran kurang!', 'error');
+        const btn = document.getElementById('btnBayarSekarang'); btn.disabled = true; btn.innerText = "PROSES...";
+        google.script.run.withSuccessHandler(() => { 
+          Swal.fire('Sukses', `Kembalian: Rp ${(b-currentTrx.total).toLocaleString('id-ID')}`, 'success');
+          document.getElementById('modalBayar').classList.add('hidden'); btn.disabled = false; btn.innerText = "KONFIRMASI PEMBAYARAN"; loadOrders();
+        }).prosesPembayaran(currentTrx.id, document.getElementById('mMetode').value, currentTrx.items.reduce((a,b)=>a+b.qty,0), currentTrx.total, b, b-currentTrx.total);
+      }
+
+      function kitchenSelesai(id) {
+        google.script.run.withSuccessHandler(() => { 
+          Toast.fire({icon:'success', title:'Pesanan Selesai'}); 
+          loadOrders(); 
+        }).updateStatusOrder(id, "Siap Disajikan");
+      }
+    </script>
+  </body>
+</html>
