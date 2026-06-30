@@ -1566,13 +1566,86 @@
       }
 
       function prosesBayar() {
-        let b = delTitik(document.getElementById('mUang').value);
-        if(b < currentTrx.total) return Swal.fire('Oops', 'Uang pembayaran kurang!', 'error');
-        const btn = document.getElementById('btnBayarSekarang'); btn.disabled = true; btn.innerText = "PROSES...";
-        google.script.run.withSuccessHandler(() => { 
-          Swal.fire('Sukses', `Kembalian: Rp ${(b-currentTrx.total).toLocaleString('id-ID')}`, 'success');
-          document.getElementById('modalBayar').classList.add('hidden'); btn.disabled = false; btn.innerText = "KONFIRMASI PEMBAYARAN"; loadOrders();
-        }).prosesPembayaran(currentTrx.id, document.getElementById('mMetode').value, currentTrx.items.reduce((a,b)=>a+b.qty,0), currentTrx.total, b, b-currentTrx.total);
+        let metode = document.getElementById('mMetode').value;
+        let isCash = (metode.toLowerCase() === 'cash' || metode.toLowerCase() === 'tunai');
+        
+        if (isCash) {
+          let b = delTitik(document.getElementById('mUang').value);
+          if(b < currentTrx.total) return Swal.fire('Oops', 'Uang pembayaran kurang!', 'error');
+          const btn = document.getElementById('btnBayarSekarang'); btn.disabled = true; btn.innerText = "PROSES...";
+          google.script.run.withSuccessHandler(() => { 
+            Swal.fire('Sukses', `Kembalian: Rp ${(b-currentTrx.total).toLocaleString('id-ID')}`, 'success');
+            document.getElementById('modalBayar').classList.add('hidden'); btn.disabled = false; btn.innerText = "KONFIRMASI PEMBAYARAN"; loadOrders();
+          }).prosesPembayaran(currentTrx.id, metode, currentTrx.items.reduce((a,b)=>a+b.qty,0), currentTrx.total, b, b-currentTrx.total);
+        } else {
+          document.getElementById('modalBayar').classList.add('hidden');
+          const totalQty = currentTrx.items.reduce((a,b)=>a+b.qty,0);
+          prosesPembayaranOnlineKasir(currentTrx.id, currentTrx.total, totalQty, currentTrx.nama, metode);
+        }
+      }
+
+      function prosesPembayaranOnlineKasir(idOrder, total, qty, customerName, metode) {
+        Swal.fire({
+          title: 'Memproses Pembayaran Online...',
+          html: 'Sedang menghubungkan ke Midtrans, harap tunggu.',
+          allowOutsideClick: false,
+          didOpen: () => { Swal.showLoading(); }
+        });
+
+        google.script.run.withSuccessHandler((snapRes) => {
+          Swal.close();
+          if (snapRes.status === 'simulated') {
+            Swal.fire({
+              title: 'Simulasi Pembayaran Kasir',
+              html: `
+                <div class="text-left space-y-2 p-2">
+                  <p class="font-bold text-ochre-300">ID Order: ${idOrder}</p>
+                  <p>Metode: <b>${metode}</b></p>
+                  <p>Total Tagihan: <b>Rp ${total.toLocaleString('id-ID')}</b></p>
+                </div>
+              `,
+              icon: 'info',
+              showCancelButton: true,
+              confirmButtonText: 'Bayar Sukses (Simulasi)',
+              cancelButtonText: 'Batal',
+              customClass: {
+                confirmButton: 'swal2-confirm',
+                cancelButton: 'swal2-cancel'
+              }
+            }).then((simResult) => {
+              if (simResult.isConfirmed) {
+                Swal.fire({ title: 'Menyelesaikan Pembayaran...', didOpen: () => { Swal.showLoading(); } });
+                google.script.run.withSuccessHandler(() => {
+                  Swal.close();
+                  Swal.fire('Pembayaran Sukses', `Transaksi via ${metode} berhasil dicatat.`, 'success');
+                  loadOrders();
+                }).prosesPembayaran(idOrder, metode, qty, total, total, 0);
+              }
+            });
+          } else if (snapRes.status === 'success') {
+            window.snap.pay(snapRes.token, {
+              onSuccess: function(result) {
+                Swal.fire({ title: 'Menyelesaikan Pembayaran...', didOpen: () => { Swal.showLoading(); } });
+                google.script.run.withSuccessHandler(() => {
+                  Swal.close();
+                  Swal.fire('Pembayaran Sukses', `Transaksi via ${metode} berhasil dicatat.`, 'success');
+                  loadOrders();
+                }).prosesPembayaran(idOrder, metode, qty, total, total, 0);
+              },
+              onPending: function(result) {
+                Swal.fire('Menunggu Pembayaran', 'Harap selesaikan pembayaran.', 'warning');
+              },
+              onError: function(result) {
+                Swal.fire('Pembayaran Gagal', 'Kesalahan pemrosesan Midtrans.', 'error');
+              },
+              onClose: function() {
+                Swal.fire('Pembayaran Dibatalkan', 'Kasir menutup pop-up.', 'info');
+              }
+            });
+          } else {
+            Swal.fire('Gagal Midtrans', snapRes.message || 'Gagal memuat token.', 'error');
+          }
+        }).dapatkanTokenMidtrans(idOrder, total, customerName);
       }
 
       function kitchenSelesai(id) {
