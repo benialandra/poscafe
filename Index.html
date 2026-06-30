@@ -794,8 +794,20 @@
               }
             });
           } else if (snapRes.status === 'success') {
-            window.snap.pay(snapRes.token, {
-              onSuccess: function(result) {
+            window.open(snapRes.redirect_url, '_blank');
+            Swal.fire({
+              title: 'Selesaikan Pembayaran',
+              text: 'Selesaikan pembayaran di tab baru yang terbuka. Setelah selesai, klik tombol di bawah untuk konfirmasi.',
+              icon: 'info',
+              showCancelButton: true,
+              confirmButtonText: 'Saya Sudah Bayar',
+              cancelButtonText: 'Batal',
+              customClass: {
+                confirmButton: 'swal2-confirm',
+                cancelButton: 'swal2-cancel'
+              }
+            }).then((choice) => {
+              if (choice.isConfirmed) {
                 Swal.fire({
                   title: 'Menyelesaikan Pesanan...',
                   didOpen: () => { Swal.showLoading(); }
@@ -804,15 +816,6 @@
                   Swal.close();
                   Swal.fire('Pembayaran Berhasil!', 'Terima kasih, pesanan Anda sedang diproses oleh dapur.', 'success');
                 }).selesaikanPembayaranOnline(idOrder, total, qty);
-              },
-              onPending: function(result) {
-                Swal.fire('Menunggu Pembayaran', 'Harap selesaikan pembayaran Anda sesuai instruksi.', 'warning');
-              },
-              onError: function(result) {
-                Swal.fire('Pembayaran Gagal', 'Terjadi kesalahan saat memproses pembayaran online.', 'error');
-              },
-              onClose: function() {
-                Swal.fire('Pembayaran Dibatalkan', 'Anda menutup pop-up pembayaran.', 'info');
               }
             });
           } else {
@@ -1623,23 +1626,26 @@
               }
             });
           } else if (snapRes.status === 'success') {
-            window.snap.pay(snapRes.token, {
-              onSuccess: function(result) {
+            window.open(snapRes.redirect_url, '_blank');
+            Swal.fire({
+              title: 'Pembayaran Midtrans',
+              text: 'Harap selesaikan pembayaran di tab baru yang terbuka. Setelah selesai, klik tombol di bawah untuk mencatat transaksi.',
+              icon: 'info',
+              showCancelButton: true,
+              confirmButtonText: 'Pembayaran Selesai',
+              cancelButtonText: 'Batal',
+              customClass: {
+                confirmButton: 'swal2-confirm',
+                cancelButton: 'swal2-cancel'
+              }
+            }).then((choice) => {
+              if (choice.isConfirmed) {
                 Swal.fire({ title: 'Menyelesaikan Pembayaran...', didOpen: () => { Swal.showLoading(); } });
                 google.script.run.withSuccessHandler(() => {
                   Swal.close();
                   Swal.fire('Pembayaran Sukses', `Transaksi via ${metode} berhasil dicatat.`, 'success');
                   loadOrders();
                 }).prosesPembayaran(idOrder, metode, qty, total, total, 0);
-              },
-              onPending: function(result) {
-                Swal.fire('Menunggu Pembayaran', 'Harap selesaikan pembayaran.', 'warning');
-              },
-              onError: function(result) {
-                Swal.fire('Pembayaran Gagal', 'Kesalahan pemrosesan Midtrans.', 'error');
-              },
-              onClose: function() {
-                Swal.fire('Pembayaran Dibatalkan', 'Kasir menutup pop-up.', 'info');
               }
             });
           } else {

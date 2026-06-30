@@ -52,7 +52,32 @@ function getSheet(sheetName) {
 }
 
 function getInitData() {
+  updateExistingMenuImagesToPremium();
   return { menus: getMenuData(), payments: ["CASH", "QRIS", "DEBIT"] };
+}
+
+function updateExistingMenuImagesToPremium() {
+  try {
+    var sheet = getSheet("menu");
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0]) {
+        var name = data[i][1].toString().toUpperCase().trim();
+        var img = data[i][4] ? data[i][4].toString() : "";
+        
+        // Update to high-resolution formats if they use old links or are empty
+        if (name === "ESPRESSO" && (!img || img.indexOf("w=500") > -1)) {
+          sheet.getRange(i + 1, 5).setValue("https://images.unsplash.com/photo-1510972527409-cef19039ae65?auto=format&fit=crop&w=600&q=80");
+        } else if (name === "CAPPUCCINO" && (!img || img.indexOf("w=500") > -1)) {
+          sheet.getRange(i + 1, 5).setValue("https://images.unsplash.com/photo-1572442388796-11668a67e53d?auto=format&fit=crop&w=600&q=80");
+        } else if ((name === "CROISSANT DE PARIS" || name === "CROISSANT") && (!img || img.indexOf("w=500") > -1)) {
+          sheet.getRange(i + 1, 5).setValue("https://images.unsplash.com/photo-1555507036-ab1f4038808a?auto=format&fit=crop&w=600&q=80");
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log("Error updating menu images: " + e.toString());
+  }
 }
 
 function cekLogin(idUser, pass) {
