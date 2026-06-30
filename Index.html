@@ -1311,7 +1311,7 @@
           return `
             <div onclick="selectGalleryImage('${item.url}')" class="cursor-pointer rounded-xl overflow-hidden premium-card transition flex flex-col items-center p-1 ${borderStyle}">
               <div class="h-16 w-full bg-cover bg-center rounded-lg" style="background-image: url('${item.url}')"></div>
-              <p class="text-[8px] py-1 px-1 text-center font-bold truncate w-full text-white mt-1">${item.name} ${isSelected ? '⭐️' : ''}</p>
+              <p class="text-[8px] py-1 px-1 text-center font-bold truncate w-full text-white mt-1">${item.name} ${isSelected ? '\u2b50' : ''}</p>
             </div>
           `;
         }).join('');
